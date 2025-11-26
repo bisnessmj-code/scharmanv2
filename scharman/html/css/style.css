@@ -229,6 +229,10 @@ body, html {
     margin: 0 5px;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   NOTIFICATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
 #notification-container {
     position: fixed;
     top: 20px;
@@ -258,3 +262,326 @@ body, html {
 .game-notification.error { border-color: #ff006e; }
 .game-notification.warning { border-color: #ffbe0b; }
 .game-notification.success { border-color: #00ff88; }
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ DÉCOMPTE 3-2-1-GO (BAS À DROITE)
+   ═══════════════════════════════════════════════════════════════ */
+
+.countdown-container {
+    position: fixed;
+    bottom: 120px;
+    right: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.8);
+    border: 3px solid #00d4ff;
+    border-radius: 20px;
+    padding: 30px 50px;
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+}
+
+.countdown-container.hidden {
+    display: none;
+}
+
+.countdown-number {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 80px;
+    font-weight: 900;
+    color: #00d4ff;
+    text-shadow: 
+        0 0 15px #00d4ff,
+        0 0 30px #00d4ff,
+        0 0 45px #00d4ff;
+    animation: countdownPulse 1s ease-in-out;
+    position: relative;
+    z-index: 2;
+}
+
+.countdown-pulse {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border: 3px solid #00d4ff;
+    border-radius: 50%;
+    animation: countdownRipple 1s ease-out;
+}
+
+@keyframes countdownPulse {
+    0% {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes countdownRipple {
+    0% {
+        transform: scale(0.5);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(3);
+        opacity: 0;
+    }
+}
+
+/* Animation spéciale pour GO! */
+.countdown-number.go {
+    color: #00ff88;
+    text-shadow: 
+        0 0 30px #00ff88,
+        0 0 60px #00ff88,
+        0 0 90px #00ff88;
+    animation: goAnimation 1s ease-out;
+}
+
+@keyframes goAnimation {
+    0% {
+        transform: scale(0.3) rotate(-5deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.5) rotate(5deg);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ MESSAGE BLOCAGE VÉHICULE
+   ═══════════════════════════════════════════════════════════════ */
+
+.vehicle-lock-container {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 8999;
+    animation: vehicleLockSlideIn 0.4s ease-out;
+}
+
+.vehicle-lock-container.hidden {
+    display: none;
+}
+
+@keyframes vehicleLockSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.vehicle-lock-content {
+    background: linear-gradient(135deg, rgba(255, 0, 110, 0.95), rgba(204, 0, 85, 0.95));
+    border: 2px solid #ff006e;
+    border-radius: 12px;
+    padding: 15px 20px;
+    box-shadow: 
+        0 4px 20px rgba(255, 0, 110, 0.4),
+        0 0 15px rgba(255, 0, 110, 0.3);
+    min-width: 280px;
+}
+
+.lock-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+    animation: lockShake 2s infinite;
+}
+
+@keyframes lockShake {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-8deg); }
+    75% { transform: rotate(8deg); }
+}
+
+.lock-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: #ffffff;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.lock-message {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 10px;
+}
+
+.lock-timer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.timer-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.timer-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 20px;
+    font-weight: 900;
+    color: #ffffff;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.lock-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.lock-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ffffff, #ffccdd);
+    border-radius: 8px;
+    transition: width 1s linear;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   💀 ÉCRAN DE MORT
+   ═══════════════════════════════════════════════════════════════ */
+
+#death-screen-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: deathFadeIn 1s ease-out;
+}
+
+#death-screen-container.hidden {
+    display: none;
+}
+
+@keyframes deathFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.death-screen-content {
+    text-align: center;
+    animation: deathPulse 2s ease-in-out infinite;
+}
+
+@keyframes deathPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.death-skull {
+    font-size: 120px;
+    margin-bottom: 30px;
+    animation: deathSkullRotate 3s ease-in-out infinite;
+}
+
+@keyframes deathSkullRotate {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    25% {
+        transform: rotate(-15deg);
+    }
+    75% {
+        transform: rotate(15deg);
+    }
+}
+
+.death-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 80px;
+    font-weight: 900;
+    color: #ff0000;
+    text-transform: uppercase;
+    letter-spacing: 8px;
+    margin-bottom: 20px;
+    text-shadow: 
+        0 0 20px #ff0000,
+        0 0 40px #ff0000,
+        0 0 60px #ff0000,
+        0 0 80px #ff0000;
+    animation: deathTitleGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes deathTitleGlow {
+    0%, 100% {
+        text-shadow: 
+            0 0 20px #ff0000,
+            0 0 40px #ff0000,
+            0 0 60px #ff0000;
+    }
+    50% {
+        text-shadow: 
+            0 0 30px #ff0000,
+            0 0 60px #ff0000,
+            0 0 90px #ff0000,
+            0 0 120px #ff0000;
+    }
+}
+
+.death-subtitle {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 30px;
+    opacity: 0.9;
+}
+
+.death-message {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 40px;
+    animation: deathMessageBlink 2s ease-in-out infinite;
+}
+
+@keyframes deathMessageBlink {
+    0%, 100% {
+        opacity: 0.7;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}

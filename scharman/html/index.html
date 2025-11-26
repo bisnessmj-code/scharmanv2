@@ -8,8 +8,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- CONTAINER NOTIFICATIONS -->
     <div id="notification-container"></div>
     
+    <!-- ✅ DÉCOMPTE 3-2-1-GO -->
+    <div id="countdown-container" class="countdown-container hidden">
+        <div class="countdown-number">3</div>
+        <div class="countdown-pulse"></div>
+    </div>
+    
+    <!-- ✅ MESSAGE BLOCAGE VÉHICULE -->
+    <div id="vehicle-lock-container" class="vehicle-lock-container hidden">
+        <div class="vehicle-lock-content">
+            <div class="lock-icon">🔒</div>
+            <div class="lock-title">VÉHICULE VERROUILLÉ</div>
+            <div class="lock-message">Vous ne pouvez pas sortir du véhicule</div>
+            <div class="lock-timer">
+                <span class="timer-label">Temps restant:</span>
+                <span class="timer-value" id="vehicle-lock-timer">30s</span>
+            </div>
+            <div class="lock-progress-bar">
+                <div class="lock-progress-fill" id="vehicle-lock-progress"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- INTERFACE PRINCIPALE -->
     <div id="app" class="app-container hidden">
         <div class="tablet">
             <div class="tablet-header">
@@ -71,7 +95,7 @@
                 <div class="info-section">
                     <div class="info-box">
                         <div class="info-label">Version</div>
-                        <div class="info-value">1.1.0</div>
+                        <div class="info-value">2.0.0</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Statut</div>
@@ -91,5 +115,15 @@
     </div>
     
     <script src="js/script.js"></script>
+    <!-- ✅ Écran de mort -->
+    <div id="death-screen-container" class="hidden">
+        <div class="death-screen-content">
+            <div class="death-skull">💀</div>
+            <div class="death-title">VOUS ÊTES MORT</div>
+            <div class="death-subtitle">Vous avez perdu la partie</div>
+            <div class="death-message">Retour en cours...</div>
+        </div>
+    </div>
+
 </body>
 </html>

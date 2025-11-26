@@ -1,14 +1,22 @@
 const AppState = {
     isOpen: false,
     isAnimating: false,
-    debugMode: true
+    debugMode: true,
+    countdownActive: false,
+    vehicleLockActive: false,
+    vehicleLockTimer: null
 };
 
 const Elements = {
     app: null,
     closeBtn: null,
     gameCards: [],
-    notificationContainer: null
+    notificationContainer: null,
+    countdownContainer: null,
+    countdownNumber: null,
+    vehicleLockContainer: null,
+    vehicleLockTimer: null,
+    vehicleLockProgress: null
 };
 
 function debugLog(message, type = 'info') {
@@ -18,7 +26,7 @@ function debugLog(message, type = 'info') {
         error: 'color: #ff006e; font-weight: bold;',
         success: 'color: #00ff88; font-weight: bold;'
     };
-    console.log(`%c[Scharman NUI] ${message}`, styles[type] || styles.info);
+    console.log(`%c[Scharman NUI V2] ${message}`, styles[type] || styles.info);
 }
 
 function post(action, data = {}) {
@@ -109,6 +117,101 @@ function handleCardClick(cardElement, index) {
     }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ✅ DÉCOMPTE 3-2-1-GO
+   ═══════════════════════════════════════════════════════════════ */
+
+function showCountdown(number) {
+    debugLog(`Affichage décompte: ${number}`, 'info');
+    
+    AppState.countdownActive = true;
+    
+    // Afficher le container
+    Elements.countdownContainer.classList.remove('hidden');
+    
+    // Mettre à jour le nombre
+    Elements.countdownNumber.textContent = number;
+    
+    // Ajouter classe spéciale pour GO!
+    if (number === 'GO!') {
+        Elements.countdownNumber.classList.add('go');
+    } else {
+        Elements.countdownNumber.classList.remove('go');
+    }
+    
+    // Forcer reflow pour animation
+    Elements.countdownNumber.style.animation = 'none';
+    void Elements.countdownNumber.offsetWidth;
+    Elements.countdownNumber.style.animation = '';
+}
+
+function hideCountdown() {
+    debugLog('Masquage décompte', 'info');
+    
+    AppState.countdownActive = false;
+    Elements.countdownContainer.classList.add('hidden');
+    Elements.countdownNumber.classList.remove('go');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ MESSAGE BLOCAGE VÉHICULE
+   ═══════════════════════════════════════════════════════════════ */
+
+function showVehicleLock(duration = 30000) {
+    debugLog(`Affichage blocage véhicule (${duration}ms)`, 'info');
+    
+    AppState.vehicleLockActive = true;
+    
+    // Afficher le container
+    Elements.vehicleLockContainer.classList.remove('hidden');
+    
+    // Initialiser la barre de progression à 100%
+    Elements.vehicleLockProgress.style.width = '100%';
+    
+    // Temps restant en secondes
+    let timeLeft = duration / 1000;
+    
+    // Mettre à jour le timer
+    Elements.vehicleLockTimer.textContent = `${timeLeft}s`;
+    
+    // Démarrer le compte à rebours
+    const startTime = Date.now();
+    
+    AppState.vehicleLockTimer = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, duration - elapsed);
+        timeLeft = Math.ceil(remaining / 1000);
+        
+        // Mettre à jour le texte
+        Elements.vehicleLockTimer.textContent = `${timeLeft}s`;
+        
+        // Mettre à jour la barre de progression
+        const progress = (remaining / duration) * 100;
+        Elements.vehicleLockProgress.style.width = `${progress}%`;
+        
+        // Si terminé, masquer
+        if (remaining <= 0) {
+            hideVehicleLock();
+        }
+    }, 100);
+}
+
+function hideVehicleLock() {
+    debugLog('Masquage blocage véhicule', 'info');
+    
+    if (AppState.vehicleLockTimer) {
+        clearInterval(AppState.vehicleLockTimer);
+        AppState.vehicleLockTimer = null;
+    }
+    
+    AppState.vehicleLockActive = false;
+    Elements.vehicleLockContainer.classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GESTION DES ÉVÉNEMENTS
+   ═══════════════════════════════════════════════════════════════ */
+
 function initEventListeners() {
     debugLog('Initialisation des écouteurs...', 'info');
     
@@ -142,6 +245,10 @@ function initEventListeners() {
     debugLog('Écouteurs initialisés', 'success');
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   RÉCEPTION DES MESSAGES DE LUA
+   ═══════════════════════════════════════════════════════════════ */
+
 window.addEventListener('message', (event) => {
     const data = event.data;
     if (!data || !data.action) return;
@@ -157,12 +264,58 @@ window.addEventListener('message', (event) => {
         case 'showNotification':
             showNotification(data.data.message, data.data.duration || 3000, data.data.type || 'info');
             break;
+        
+        // ✅ NOUVEAU: Décompte
+        case 'showCountdown':
+            showCountdown(data.data.number);
+            break;
+        case 'hideCountdown':
+            hideCountdown();
+            break;
+        
+        // ✅ NOUVEAU: Blocage véhicule
+        case 'showVehicleLock':
+            showVehicleLock(data.data.duration || 30000);
+            break;
+        case 'hideVehicleLock':
+            hideVehicleLock();
+            break;
+        case 'showDeathScreen':
+            showDeathScreen();
+            break;
+        case 'hideDeathScreen':
+            hideDeathScreen();
+            break;
     }
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   💀 ÉCRAN DE MORT
+   ═══════════════════════════════════════════════════════════════ */
+
+function showDeathScreen() {
+    debugLog('Affichage écran de mort', 'error');
+    const deathScreen = document.getElementById('death-screen-container');
+    if (deathScreen) {
+        deathScreen.classList.remove('hidden');
+    }
+}
+
+function hideDeathScreen() {
+    debugLog('Masquage écran de mort');
+    const deathScreen = document.getElementById('death-screen-container');
+    if (deathScreen) {
+        deathScreen.classList.add('hidden');
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INITIALISATION
+   ═══════════════════════════════════════════════════════════════ */
+
 function init() {
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
-    debugLog('Init Scharman NUI...', 'info');
+    debugLog('Init Scharman NUI V2.0...', 'info');
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
     
     Elements.app = document.getElementById('app');
@@ -170,16 +323,33 @@ function init() {
     Elements.gameCards = Array.from(document.querySelectorAll('.game-card'));
     Elements.notificationContainer = document.getElementById('notification-container');
     
+    // ✅ NOUVEAUX ÉLÉMENTS
+    Elements.countdownContainer = document.getElementById('countdown-container');
+    Elements.countdownNumber = Elements.countdownContainer?.querySelector('.countdown-number');
+    Elements.vehicleLockContainer = document.getElementById('vehicle-lock-container');
+    Elements.vehicleLockTimer = document.getElementById('vehicle-lock-timer');
+    Elements.vehicleLockProgress = document.getElementById('vehicle-lock-progress');
+    
     if (!Elements.app || !Elements.closeBtn || !Elements.notificationContainer) {
         debugLog('Erreur: Éléments manquants!', 'error');
         return;
+    }
+    
+    if (!Elements.countdownContainer || !Elements.countdownNumber) {
+        debugLog('Erreur: Éléments décompte manquants!', 'error');
+    }
+    
+    if (!Elements.vehicleLockContainer || !Elements.vehicleLockTimer || !Elements.vehicleLockProgress) {
+        debugLog('Erreur: Éléments blocage véhicule manquants!', 'error');
     }
     
     initEventListeners();
     Elements.app.classList.add('hidden');
     
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
-    debugLog('Scharman NUI initialisé!', 'success');
+    debugLog('Scharman NUI V2.0 initialisé!', 'success');
+    debugLog('- Décompte 3-2-1-GO: OK', 'success');
+    debugLog('- Blocage véhicule: OK', 'success');
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
 }
 

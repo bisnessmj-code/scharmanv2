@@ -4,7 +4,7 @@
 -- ╚════██║██║     ██╔══██║██╔══██║██╔══██╗██║╚██╔╝██║██╔══██║██║╚██╗██║
 -- ███████║╚██████╗██║  ██║██║  ██║██║  ██║██║ ╚═╝ ██║██║  ██║██║ ╚████║
 -- ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
--- CLIENT - MODE COURSE POURSUITE (CORRIGÉ)
+-- CLIENT - MODE COURSE POURSUITE V2 (AMÉLIORÉ)
 -- ═══════════════════════════════════════════════════════════════
 
 -- ═══════════════════════════════════════════════════════════════
@@ -14,25 +14,30 @@
 local inGame = false
 local currentVehicle = nil
 local instanceId = nil
+local currentBucket = 0 -- ✅ Bucket actuel du joueur
 local blockExitThread = nil
 local zoneCheckThread = nil
 local gameEndTime = nil
+local gameStartTime = nil
 local botPed = nil
 local botVehicle = nil
 
--- ✅ NOUVELLES VARIABLES - ZONE DE GUERRE
-local canExitVehicle = false           -- Autorisé à sortir après 30s
-local warZoneActive = false            -- Zone de guerre créée
-local warZonePosition = nil            -- Position de la zone de guerre
-local warZoneBlip = nil                -- Blip sur la map
-local warZoneThread = nil              -- Thread de rendu de la zone
-local gameStartTime = nil              -- Temps de début du jeu
+-- ✅ ZONE DE GUERRE - Spawn immédiat
+local canExitVehicle = false
+local warZoneActive = false
+local warZonePosition = nil
+local warZoneBlip = nil
+local warZoneCenterBlip = nil
+local warZoneThread = nil
+local warZoneRadius = 50.0
+
+-- ✅ DÉCOMPTE
+local countdownActive = false
 
 -- ═══════════════════════════════════════════════════════════════
 -- FONCTIONS UTILITAIRES
 -- ═══════════════════════════════════════════════════════════════
 
--- Afficher une notification NUI personnalisée
 local function ShowGameNotification(message, duration, notifType)
     SendNUIMessage({
         action = 'showNotification',
@@ -44,7 +49,6 @@ local function ShowGameNotification(message, duration, notifType)
     })
 end
 
--- Charger un modèle avec timeout
 local function LoadModel(model)
     local modelHash = GetHashKey(model)
     
@@ -71,11 +75,9 @@ local function LoadModel(model)
     return true
 end
 
--- Placer le joueur dans un véhicule de manière robuste
 local function ForcePlayerIntoVehicle(ped, vehicle, seat)
     Config.DebugPrint('Tentative de placement du joueur dans le véhicule...')
     
-    -- Vérifications de base
     if not DoesEntityExist(vehicle) then
         Config.ErrorPrint('Le véhicule n\'existe pas!')
         return false
@@ -86,7 +88,6 @@ local function ForcePlayerIntoVehicle(ped, vehicle, seat)
         return false
     end
     
-    -- S'assurer que le véhicule est au sol
     SetVehicleOnGroundProperly(vehicle)
     Wait(100)
     
@@ -95,11 +96,9 @@ local function ForcePlayerIntoVehicle(ped, vehicle, seat)
     Config.DebugPrint('- PED existe: ' .. tostring(DoesEntityExist(ped)))
     Config.DebugPrint('- Siège: ' .. tostring(seat))
     
-    -- Méthode 1: TaskWarpPedIntoVehicle
     TaskWarpPedIntoVehicle(ped, vehicle, seat)
     Wait(500)
     
-    -- Vérifier si le joueur est dans le véhicule
     local attempts = 0
     local maxAttempts = 10
     
@@ -107,11 +106,9 @@ local function ForcePlayerIntoVehicle(ped, vehicle, seat)
         attempts = attempts + 1
         Config.DebugPrint('Tentative ' .. attempts .. '/' .. maxAttempts .. ' de placement...')
         
-        -- Réessayer avec TaskWarpPedIntoVehicle
         TaskWarpPedIntoVehicle(ped, vehicle, seat)
         Wait(300)
         
-        -- Si ça ne marche toujours pas, essayer SetPedIntoVehicle
         if GetVehiclePedIsIn(ped, false) ~= vehicle then
             Config.DebugPrint('TaskWarp échoué, essai avec SetPedIntoVehicle...')
             SetPedIntoVehicle(ped, vehicle, seat)
@@ -119,7 +116,6 @@ local function ForcePlayerIntoVehicle(ped, vehicle, seat)
         end
     end
     
-    -- Vérification finale
     local currentVeh = GetVehiclePedIsIn(ped, false)
     local isInVehicle = currentVeh == vehicle
     
@@ -139,10 +135,179 @@ local function ForcePlayerIntoVehicle(ped, vehicle, seat)
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- FONCTIONS BOT ADVERSAIRE
+-- ZONE DE GUERRE
 -- ═══════════════════════════════════════════════════════════════
 
--- Supprimer le bot
+-- ✅ CORRECTION: Déclarer StartWarZoneThread AVANT CreateWarZone
+local function StartWarZoneThread()
+    if warZoneThread then return end
+    
+    Config.InfoPrint('Thread de rendu zone de guerre démarré')
+    
+    warZoneThread = CreateThread(function()
+        while inGame and warZoneActive do
+            Wait(0)
+            
+            -- ✅ Vérifier que warZonePosition existe avant de l'utiliser
+            if not warZonePosition then
+                Wait(100)
+                goto continue
+            end
+            
+            local pos = warZonePosition
+            
+            -- Colonne de lumière rouge (cylindre vertical)
+            DrawMarker(
+                28,
+                pos.x, pos.y, pos.z,
+                0.0, 0.0, 0.0,
+                0.0, 0.0, 0.0,
+                warZoneRadius, warZoneRadius, 150.0,
+                255, 0, 0, 100,
+                false, false, 2, false, nil, nil, false
+            )
+            
+            -- Cercle au sol
+            DrawMarker(
+                1,
+                pos.x, pos.y, pos.z - 1.0,
+                0.0, 0.0, 0.0,
+                0.0, 0.0, 0.0,
+                warZoneRadius * 2, warZoneRadius * 2, 1.0,
+                255, 0, 0, 150,
+                false, false, 2, false, nil, nil, false
+            )
+            
+            ::continue::
+        end
+        
+        warZoneThread = nil
+        Config.DebugPrint('Thread de rendu zone de guerre arrêté')
+    end)
+end
+
+local function CreateWarZone(position)
+    Config.InfoPrint('🔴 CRÉATION ZONE DE GUERRE')
+    
+    warZonePosition = position
+    warZoneActive = true
+    
+    -- Créer le blip de rayon (zone rouge)
+    if warZoneBlip then
+        RemoveBlip(warZoneBlip)
+    end
+    
+    warZoneBlip = AddBlipForRadius(position.x, position.y, position.z, warZoneRadius)
+    SetBlipHighDetail(warZoneBlip, true)
+    SetBlipColour(warZoneBlip, 1) -- Rouge
+    SetBlipAlpha(warZoneBlip, 180)
+    
+    -- Créer le blip centre (crâne)
+    if warZoneCenterBlip then
+        RemoveBlip(warZoneCenterBlip)
+    end
+    
+    warZoneCenterBlip = AddBlipForCoord(position.x, position.y, position.z)
+    SetBlipSprite(warZoneCenterBlip, 84) -- Crâne
+    SetBlipDisplay(warZoneCenterBlip, 4)
+    SetBlipScale(warZoneCenterBlip, 1.2)
+    SetBlipColour(warZoneCenterBlip, 1) -- Rouge
+    SetBlipAsShortRange(warZoneCenterBlip, false)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentString("🔴 ZONE DE GUERRE")
+    EndTextCommandSetBlipName(warZoneCenterBlip)
+    
+    Config.SuccessPrint('Zone de guerre créée à la position: ' .. tostring(position))
+    
+    -- Démarrer le thread de rendu
+    StartWarZoneThread()
+end
+
+local function DeleteWarZone()
+    Config.DebugPrint('Suppression de la zone de guerre...')
+    
+    warZoneActive = false
+    warZonePosition = nil
+    
+    if warZoneBlip then
+        RemoveBlip(warZoneBlip)
+        warZoneBlip = nil
+    end
+    
+    if warZoneCenterBlip then
+        RemoveBlip(warZoneCenterBlip)
+        warZoneCenterBlip = nil
+    end
+    
+    if warZoneThread then
+        warZoneThread = nil
+    end
+    
+    Config.SuccessPrint('Zone de guerre supprimée')
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- DÉCOMPTE 3-2-1-GO
+-- ═══════════════════════════════════════════════════════════════
+
+local function StartCountdown()
+    Config.InfoPrint('⏱️ DÉMARRAGE DU DÉCOMPTE')
+    
+    countdownActive = true
+    
+    -- Bloquer les contrôles pendant le décompte
+    local ped = PlayerPedId()
+    FreezeEntityPosition(ped, true)
+    
+    -- 3
+    SendNUIMessage({
+        action = 'showCountdown',
+        data = { number = 3 }
+    })
+    PlaySoundFrontend(-1, 'CHECKPOINT_NORMAL', 'HUD_MINI_GAME_SOUNDSET', true)
+    Wait(1000)
+    
+    -- 2
+    SendNUIMessage({
+        action = 'showCountdown',
+        data = { number = 2 }
+    })
+    PlaySoundFrontend(-1, 'CHECKPOINT_NORMAL', 'HUD_MINI_GAME_SOUNDSET', true)
+    Wait(1000)
+    
+    -- 1
+    SendNUIMessage({
+        action = 'showCountdown',
+        data = { number = 1 }
+    })
+    PlaySoundFrontend(-1, 'CHECKPOINT_NORMAL', 'HUD_MINI_GAME_SOUNDSET', true)
+    Wait(1000)
+    
+    -- GO!
+    SendNUIMessage({
+        action = 'showCountdown',
+        data = { number = 'GO!' }
+    })
+    PlaySoundFrontend(-1, 'RACE_PLACED', 'HUD_AWARDS', true)
+    
+    -- Débloquer
+    FreezeEntityPosition(ped, false)
+    
+    Wait(1000)
+    
+    -- Cacher le décompte
+    SendNUIMessage({
+        action = 'hideCountdown'
+    })
+    
+    countdownActive = false
+    Config.SuccessPrint('✅ Décompte terminé - C\'EST PARTI!')
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- FONCTIONS BOT
+-- ═══════════════════════════════════════════════════════════════
+
 local function DeleteBot()
     Config.DebugPrint('Suppression du bot...')
     
@@ -161,7 +326,6 @@ local function DeleteBot()
     Config.SuccessPrint('Bot nettoyé')
 end
 
--- Spawner un bot adversaire
 local function SpawnBotAdversary()
     if not Config.CoursePoursuit.SpawnBotInSolo then
         Config.DebugPrint('Spawn bot désactivé dans la config')
@@ -174,10 +338,6 @@ local function SpawnBotAdversary()
     local playerCoords = GetEntityCoords(ped)
     local playerHeading = GetEntityHeading(ped)
     
-    Config.DebugPrint('Position joueur: ' .. tostring(playerCoords))
-    Config.DebugPrint('Heading joueur: ' .. tostring(playerHeading))
-    
-    -- Calculer la position du bot (à côté du joueur)
     local offset = Config.CoursePoursuit.BotSpawnOffset
     local forwardX = math.cos(math.rad(playerHeading))
     local forwardY = math.sin(math.rad(playerHeading))
@@ -188,35 +348,42 @@ local function SpawnBotAdversary()
         playerCoords.z + offset.z
     )
     
-    Config.DebugPrint('Position bot calculée: ' .. tostring(botCoords))
-    
-    -- Charger le modèle du bot
     if not LoadModel(Config.CoursePoursuit.BotModel) then
         Config.ErrorPrint('Échec chargement modèle bot')
         return false
     end
     
-    -- Créer le bot
-    Config.DebugPrint('Création du PED bot...')
-    botPed = CreatePed(4, GetHashKey(Config.CoursePoursuit.BotModel), botCoords.x, botCoords.y, botCoords.z, playerHeading, true, true)  -- ✅ CORRECTION: true, true pour forcer création réseau
+    Config.DebugPrint('Création du bot PED...')
+    Config.DebugPrint('Position: ' .. tostring(botCoords))
+    Config.DebugPrint('Bucket: ' .. tostring(currentBucket))
     
-    -- Attendre synchronisation
-    Wait(300)
+    botPed = CreatePed(4, GetHashKey(Config.CoursePoursuit.BotModel), botCoords.x, botCoords.y, botCoords.z, playerHeading, true, true)
     
-    if not DoesEntityExist(botPed) then
-        Config.ErrorPrint('Échec création bot')
+    Config.DebugPrint('CreatePed retourné: ' .. tostring(botPed))
+    
+    Wait(1000) -- ✅ Augmenté à 1 seconde pour donner le temps au PED de spawn
+    
+    if not botPed or botPed == 0 or not DoesEntityExist(botPed) then
+        Config.ErrorPrint('Échec création bot PED (Entity ID: ' .. tostring(botPed) .. ')')
         SetModelAsNoLongerNeeded(GetHashKey(Config.CoursePoursuit.BotModel))
         return false
     end
     
-    Config.SuccessPrint('Bot créé: ' .. botPed)
-    Config.DebugPrint('Bot existe: ' .. tostring(DoesEntityExist(botPed)))
+    Config.SuccessPrint('Bot PED entity créé (ID: ' .. botPed .. ')')
     
-    -- Rendre le bot invincible
+    -- ✅ Mettre le bot dans le même routing bucket que le joueur
+    if currentBucket > 0 then
+        SetEntityRoutingBucket(botPed, currentBucket)
+        Wait(200) -- Attendre que le bucket soit appliqué
+        Config.SuccessPrint('Bot PED placé dans bucket ' .. currentBucket)
+    else
+        Config.ErrorPrint('Bucket invalide ou non défini: ' .. tostring(currentBucket))
+    end
+    
     SetEntityInvincible(botPed, true)
     SetBlockingOfNonTemporaryEvents(botPed, true)
+    Config.SuccessPrint('Bot PED créé')
     
-    -- Charger le modèle du véhicule bot
     if not LoadModel(Config.CoursePoursuit.BotVehicle) then
         Config.ErrorPrint('Échec chargement véhicule bot')
         DeleteEntity(botPed)
@@ -224,77 +391,57 @@ local function SpawnBotAdversary()
         return false
     end
     
-    -- Créer le véhicule du bot
     Config.DebugPrint('Création du véhicule bot...')
+    
     botVehicle = CreateVehicle(
         GetHashKey(Config.CoursePoursuit.BotVehicle),
-        botCoords.x,
-        botCoords.y,
-        botCoords.z,
-        playerHeading,
-        true,
-        true  -- ✅ CORRECTION: true pour forcer la création réseau
+        botCoords.x, botCoords.y, botCoords.z,
+        playerHeading, true, true
     )
     
-    -- Attendre synchronisation
-    Wait(500)
+    Config.DebugPrint('CreateVehicle retourné: ' .. tostring(botVehicle))
     
-    if not DoesEntityExist(botVehicle) then
-        Config.ErrorPrint('Échec création véhicule bot')
+    Wait(1000) -- ✅ Augmenté à 1 seconde
+    
+    if not botVehicle or botVehicle == 0 or not DoesEntityExist(botVehicle) then
+        Config.ErrorPrint('Échec création véhicule bot (Entity ID: ' .. tostring(botVehicle) .. ')')
         DeleteEntity(botPed)
         botPed = nil
         SetModelAsNoLongerNeeded(GetHashKey(Config.CoursePoursuit.BotVehicle))
         return false
     end
     
-    Config.SuccessPrint('Véhicule bot créé: ' .. botVehicle)
-    Config.DebugPrint('Véhicule bot existe: ' .. tostring(DoesEntityExist(botVehicle)))
+    Config.SuccessPrint('Véhicule bot entity créé (ID: ' .. botVehicle .. ')')
     
-    -- Personnaliser le véhicule bot
+    -- ✅ Mettre le véhicule bot dans le même routing bucket
+    if currentBucket > 0 then
+        SetEntityRoutingBucket(botVehicle, currentBucket)
+        Wait(200) -- Attendre que le bucket soit appliqué
+        Config.SuccessPrint('Véhicule bot placé dans bucket ' .. currentBucket)
+    else
+        Config.ErrorPrint('Bucket invalide pour véhicule bot: ' .. tostring(currentBucket))
+    end
+    
+    Config.SuccessPrint('Véhicule bot créé')
+    
     local botColor = Config.CoursePoursuit.BotVehicleColor
     SetVehicleCustomPrimaryColour(botVehicle, botColor.primary.r, botColor.primary.g, botColor.primary.b)
     SetVehicleCustomSecondaryColour(botVehicle, botColor.secondary.r, botColor.secondary.g, botColor.secondary.b)
     SetVehicleNumberPlateText(botVehicle, 'BOT~AI')
-    
-    -- Vérifier après personnalisation
-    if not DoesEntityExist(botVehicle) then
-        Config.ErrorPrint('Véhicule bot disparu après personnalisation')
-        DeleteEntity(botPed)
-        botPed = nil
-        return false
-    end
-    
-    -- Rendre le véhicule plus résistant
     SetVehicleEngineHealth(botVehicle, 1000.0)
     SetVehicleBodyHealth(botVehicle, 1000.0)
     SetVehicleOnGroundProperly(botVehicle)
     
-    Config.DebugPrint('Véhicule bot personnalisé')
-    
-    -- Attendre que le véhicule soit bien chargé
-    Wait(1000)  -- ✅ CORRECTION: Wait augmenté de 500 à 1000
-    
-    -- Vérification finale
-    if not DoesEntityExist(botVehicle) then
-        Config.ErrorPrint('Véhicule bot disparu avant placement')
-        DeleteEntity(botPed)
-        botPed = nil
-        return false
-    end
-    
-    -- Mettre le bot dans le véhicule (siège conducteur = -1)
-    Config.DebugPrint('Placement du bot dans le véhicule...')
+    Wait(1000)
     
     TaskWarpPedIntoVehicle(botPed, botVehicle, -1)
     Wait(1000)
     
-    -- Vérifier que le bot est dans le véhicule
     local attempts = 0
     local maxAttempts = 5
     
     while GetVehiclePedIsIn(botPed, false) ~= botVehicle and attempts < maxAttempts do
         attempts = attempts + 1
-        Config.DebugPrint('Tentative ' .. attempts .. ' de placement du bot...')
         TaskWarpPedIntoVehicle(botPed, botVehicle, -1)
         Wait(500)
         
@@ -304,53 +451,23 @@ local function SpawnBotAdversary()
         end
     end
     
-    local botInVehicle = GetVehiclePedIsIn(botPed, false) == botVehicle
-    
-    Config.DebugPrint('Bot dans véhicule: ' .. tostring(botInVehicle))
-    
-    if not botInVehicle then
+    if GetVehiclePedIsIn(botPed, false) ~= botVehicle then
         Config.ErrorPrint('ÉCHEC: Bot pas dans le véhicule!')
         DeleteBot()
         return false
     end
     
-    -- Faire conduire le bot
-    Config.DebugPrint('Configuration de la conduite du bot...')
-    
     if Config.CoursePoursuit.BotRandomRoute then
-        TaskVehicleDriveWander(
-            botPed,
-            botVehicle,
-            Config.CoursePoursuit.BotSpeed,
-            Config.CoursePoursuit.BotDrivingStyle
-        )
-        Config.DebugPrint('Bot en conduite aléatoire')
+        TaskVehicleDriveWander(botPed, botVehicle, Config.CoursePoursuit.BotSpeed, Config.CoursePoursuit.BotDrivingStyle)
     else
-        -- Conduire vers un point lointain
-        local targetCoords = vector3(
-            botCoords.x + 500.0,
-            botCoords.y + 500.0,
-            botCoords.z
-        )
-        TaskVehicleDriveToCoordLongrange(
-            botPed,
-            botVehicle,
-            targetCoords.x,
-            targetCoords.y,
-            targetCoords.z,
-            Config.CoursePoursuit.BotSpeed,
-            Config.CoursePoursuit.BotDrivingStyle,
-            10.0
-        )
-        Config.DebugPrint('Bot en conduite vers point précis')
+        local targetCoords = vector3(botCoords.x + 500.0, botCoords.y + 500.0, botCoords.z)
+        TaskVehicleDriveToCoordLongrange(botPed, botVehicle, targetCoords.x, targetCoords.y, targetCoords.z, Config.CoursePoursuit.BotSpeed, Config.CoursePoursuit.BotDrivingStyle, 10.0)
     end
     
-    -- Libérer les modèles
     SetModelAsNoLongerNeeded(GetHashKey(Config.CoursePoursuit.BotModel))
     SetModelAsNoLongerNeeded(GetHashKey(Config.CoursePoursuit.BotVehicle))
     
     Config.InfoPrint('═══ FIN SPAWN BOT - SUCCÈS ═══')
-    Config.SuccessPrint('Bot adversaire spawné et en conduite!')
     ShowGameNotification('🤖 Un adversaire bot est apparu !', 4000, 'success')
     
     return true
@@ -360,7 +477,6 @@ end
 -- DÉMARRAGE DU JEU
 -- ═══════════════════════════════════════════════════════════════
 
--- Démarrer le jeu
 local function StartCoursePoursuiteGame(data)
     if inGame then
         Config.DebugPrint('Déjà en jeu')
@@ -368,78 +484,51 @@ local function StartCoursePoursuiteGame(data)
     end
     
     Config.InfoPrint('═══════════════════════════════════════════════════════════════')
-    Config.InfoPrint('DÉMARRAGE DE LA COURSE POURSUITE')
+    Config.InfoPrint('DÉMARRAGE DE LA COURSE POURSUITE V2')
     Config.InfoPrint('═══════════════════════════════════════════════════════════════')
     
-    -- Protection contre écran noir avec pcall
     local success, err = pcall(function()
         local ped = PlayerPedId()
         instanceId = data.instanceId
         
-        Config.DebugPrint('Instance ID: ' .. tostring(instanceId))
-        Config.DebugPrint('PED ID: ' .. tostring(ped))
-        
-        -- Récupérer les coordonnées et le modèle
         local spawnCoords = data.spawnCoords or Config.CoursePoursuit.SpawnCoords
         local vehicleModel = data.vehicleModel or Config.CoursePoursuit.VehicleModel
         
-        Config.DebugPrint('Spawn coords: ' .. tostring(spawnCoords))
-        Config.DebugPrint('Vehicle model: ' .. vehicleModel)
-        
-        -- Notification de téléportation
         ShowGameNotification(Config.CoursePoursuit.Notifications.teleporting, 2000, 'info')
         
-        -- Fade out
-        Config.DebugPrint('Fade out...')
         DoScreenFadeOut(800)
-        while not IsScreenFadedOut() do
-            Wait(10)
-        end
-        Config.DebugPrint('Écran noir')
+        while not IsScreenFadedOut() do Wait(10) end
         
-        -- Téléporter le joueur
-        Config.DebugPrint('Téléportation du joueur...')
         SetEntityCoords(ped, spawnCoords.x, spawnCoords.y, spawnCoords.z, false, false, false, true)
         SetEntityHeading(ped, spawnCoords.w)
-        Config.DebugPrint('Joueur téléporté')
         
-        -- ✅ CORRECTION V4: Attendre synchronisation du routing bucket
-        -- Note: GetPlayerRoutingBucket() n'existe pas côté client
-        -- On attend simplement un délai suffisant pour la synchronisation réseau
         local expectedBucket = data.bucketId
+        currentBucket = expectedBucket or 0 -- ✅ Stocker le bucket
         if expectedBucket then
-            Config.InfoPrint('Synchronisation routing bucket ' .. expectedBucket .. ' en cours...')
-            Config.DebugPrint('Attente de 3 secondes pour synchronisation réseau...')
-            
-            -- Attendre 3 secondes pour laisser le temps au serveur de synchroniser le bucket
+            Config.InfoPrint('Synchronisation routing bucket ' .. expectedBucket)
             Wait(3000)
-            
             Config.SuccessPrint('Délai de synchronisation terminé')
         else
-            -- Pas de bucket fourni, attendre quand même
-            Config.DebugPrint('Pas de bucket ID fourni, attente 3 secondes...')
             Wait(3000)
         end
         
-        -- Attendre stabilisation supplémentaire
         Wait(1000)
         
-        -- ✅ V5: Récupérer le véhicule créé par le serveur via Network ID
+        -- ✅ Récupération du véhicule créé par le serveur
         local vehicleNetId = data.vehicleNetId
         
         if vehicleNetId then
-            Config.InfoPrint('═══ RÉCUPÉRATION VÉHICULE SERVEUR (V5) ═══')
+            Config.InfoPrint('═══ RÉCUPÉRATION VÉHICULE SERVEUR ═══')
             Config.DebugPrint('Vehicle Network ID reçu: ' .. vehicleNetId)
             
-            -- Attendre que le véhicule réseau soit synchronisé
-            local maxAttempts = 100  -- 10 secondes max
+            local maxAttempts = 100
             local attempt = 0
             
             repeat
                 currentVehicle = NetworkGetEntityFromNetworkId(vehicleNetId)
                 
                 if currentVehicle and DoesEntityExist(currentVehicle) then
-                    Config.SuccessPrint('Véhicule récupéré avec succès: ' .. currentVehicle)
+                    Config.SuccessPrint('Véhicule récupéré: ' .. currentVehicle)
                     break
                 end
                 
@@ -447,91 +536,47 @@ local function StartCoursePoursuiteGame(data)
                 Wait(100)
                 
                 if attempt % 10 == 0 then
-                    Config.DebugPrint('Attente véhicule réseau... Tentative ' .. attempt .. '/100')
+                    Config.DebugPrint('Attente véhicule... ' .. attempt .. '/100')
                 end
             until attempt >= maxAttempts
             
             if not currentVehicle or not DoesEntityExist(currentVehicle) then
-                error('Échec récupération véhicule réseau après ' .. (maxAttempts * 100) .. 'ms - NetID: ' .. vehicleNetId)
+                error('Échec récupération véhicule - NetID: ' .. vehicleNetId)
             end
             
-            Config.DebugPrint('Véhicule existe: ' .. tostring(DoesEntityExist(currentVehicle)))
-            Config.DebugPrint('Véhicule handle: ' .. currentVehicle)
-            
-            -- S'assurer que le véhicule est au sol
             SetVehicleOnGroundProperly(currentVehicle)
             Wait(500)
             
         else
-            -- ❌ FALLBACK: Créer le véhicule côté client (ancien système)
-            Config.ErrorPrint('ATTENTION: Pas de Network ID reçu, utilisation ancien système')
+            Config.ErrorPrint('Pas de Network ID reçu - Fallback')
             
-            -- Charger le modèle du véhicule
-            Config.DebugPrint('Chargement du modèle de véhicule...')
             if not LoadModel(vehicleModel) then
-                error('Échec du chargement du modèle de véhicule: ' .. vehicleModel)
+                error('Échec chargement modèle: ' .. vehicleModel)
             end
             
-            -- Créer le véhicule
-            Config.DebugPrint('Création du véhicule joueur...')
             currentVehicle = CreateVehicle(
                 GetHashKey(vehicleModel),
-                spawnCoords.x,
-                spawnCoords.y,
-                spawnCoords.z,
-                spawnCoords.w,
-                true,
-                true
+                spawnCoords.x, spawnCoords.y, spawnCoords.z, spawnCoords.w,
+                true, true
             )
             
-            Config.DebugPrint('Véhicule handle: ' .. tostring(currentVehicle))
-            
-            -- Attendre que le véhicule soit synchronisé
-            Config.DebugPrint('Attente synchronisation véhicule...')
             Wait(1500)
             
-            -- Vérifier existence
-            Config.DebugPrint('Vérification existence véhicule...')
             if not DoesEntityExist(currentVehicle) then
-                error('Échec de la création du véhicule - Handle: ' .. tostring(currentVehicle) .. ' - DoesEntityExist: false')
+                error('Échec création véhicule')
             end
             
-            Config.SuccessPrint('Véhicule créé: ' .. currentVehicle)
-            Config.DebugPrint('Véhicule existe après création: ' .. tostring(DoesEntityExist(currentVehicle)))
-            
-            -- S'assurer que le véhicule est au sol
             SetVehicleOnGroundProperly(currentVehicle)
             Wait(500)
-            
-            -- Vérifier que le véhicule existe toujours
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule a disparu après SetVehicleOnGroundProperly')
-            end
-            Config.DebugPrint('Véhicule existe après ground properly: true')
         end
         
-        -- ✅ V5: Personnaliser le véhicule SEULEMENT si créé côté client (fallback)
+        -- Personnalisation
         if not vehicleNetId then
-            -- Véhicule créé côté client, on le personnalise
-            Config.DebugPrint('Personnalisation du véhicule (client-side)...')
-            
-            -- Vérifier l'existence avant chaque opération
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule a disparu avant la personnalisation')
-            end
-            
             local primaryColor = Config.CoursePoursuit.VehicleCustomization.primaryColor
             local secondaryColor = Config.CoursePoursuit.VehicleCustomization.secondaryColor
             SetVehicleCustomPrimaryColour(currentVehicle, primaryColor.r, primaryColor.g, primaryColor.b)
             SetVehicleCustomSecondaryColour(currentVehicle, secondaryColor.r, secondaryColor.g, secondaryColor.b)
             
-            -- Vérifier après couleurs
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule a disparu après les couleurs')
-            end
-            Config.DebugPrint('Couleurs appliquées')
-            
-            -- Appliquer les mods
             local mods = Config.CoursePoursuit.VehicleCustomization.mods
             SetVehicleMod(currentVehicle, 11, mods.engine, false)
             SetVehicleMod(currentVehicle, 12, mods.brakes, false)
@@ -539,193 +584,100 @@ local function StartCoursePoursuiteGame(data)
             SetVehicleMod(currentVehicle, 15, mods.suspension, false)
             ToggleVehicleMod(currentVehicle, 18, mods.turbo)
             
-            -- Vérifier après mods
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule a disparu après les mods')
-            end
-            Config.DebugPrint('Mods appliqués')
-            
-            -- Plaque d'immatriculation
             SetVehicleNumberPlateText(currentVehicle, 'COURSE')
             
-            -- Remplir essence (avec protection)
-            local success, err = pcall(function()
+            pcall(function()
                 SetVehicleFuelLevel(currentVehicle, 100.0)
             end)
-            if not success then
-                Config.DebugPrint('SetVehicleFuelLevel échoué (normal si pas de script fuel): ' .. tostring(err))
-            end
             
-            -- Vérifier après essence
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule a disparu après SetVehicleFuelLevel')
-            end
-            Config.DebugPrint('Essence configurée')
-            
-            -- Santé du véhicule
             SetVehicleEngineHealth(currentVehicle, 1000.0)
             SetVehicleBodyHealth(currentVehicle, 1000.0)
-            
-            -- Vérifier après santé
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule a disparu après santé')
-            end
-            Config.DebugPrint('Santé configurée')
-            
-            -- Verrouiller les portes
             SetVehicleDoorsLocked(currentVehicle, 2)
             SetVehicleDoorsLockedForAllPlayers(currentVehicle, true)
-            
-            -- Vérification finale
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule a disparu après verrouillage')
-            end
-            
-            Config.DebugPrint('Véhicule personnalisé - Existe: ' .. tostring(DoesEntityExist(currentVehicle)))
-            
-            -- Attendre que le véhicule soit stable
-            Wait(1000)
-            
-            -- Vérification finale avant placement
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule a disparu avant le placement du joueur')
-            end
-            Config.DebugPrint('Véhicule stable et prêt pour placement')
         else
-            -- Véhicule créé côté serveur, on le personnalise maintenant côté client
-            Config.InfoPrint('Personnalisation du véhicule récupéré du serveur...')
-            
-            -- Vérifier existence
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule n\'existe pas avant personnalisation')
-            end
-            
-            -- Couleurs
             local primaryColor = Config.CoursePoursuit.VehicleCustomization.primaryColor
             local secondaryColor = Config.CoursePoursuit.VehicleCustomization.secondaryColor
             SetVehicleCustomPrimaryColour(currentVehicle, primaryColor.r, primaryColor.g, primaryColor.b)
             SetVehicleCustomSecondaryColour(currentVehicle, secondaryColor.r, secondaryColor.g, secondaryColor.b)
-            Config.DebugPrint('Couleurs appliquées')
             
-            -- Mods
             local mods = Config.CoursePoursuit.VehicleCustomization.mods
             SetVehicleMod(currentVehicle, 11, mods.engine, false)
             SetVehicleMod(currentVehicle, 12, mods.brakes, false)
             SetVehicleMod(currentVehicle, 13, mods.transmission, false)
             SetVehicleMod(currentVehicle, 15, mods.suspension, false)
             ToggleVehicleMod(currentVehicle, 18, mods.turbo)
-            Config.DebugPrint('Mods appliqués')
             
-            -- Plaque
             SetVehicleNumberPlateText(currentVehicle, 'COURSE')
             
-            -- Essence (avec protection)
-            local success, err = pcall(function()
+            pcall(function()
                 SetVehicleFuelLevel(currentVehicle, 100.0)
             end)
-            if not success then
-                Config.DebugPrint('SetVehicleFuelLevel échoué: ' .. tostring(err))
-            end
             
-            -- Santé
             SetVehicleEngineHealth(currentVehicle, 1000.0)
             SetVehicleBodyHealth(currentVehicle, 1000.0)
-            
-            -- Verrouillage
             SetVehicleDoorsLocked(currentVehicle, 2)
             SetVehicleDoorsLockedForAllPlayers(currentVehicle, true)
             
             Config.SuccessPrint('Véhicule personnalisé côté client')
-            
-            -- Vérifier que le véhicule existe toujours
-            if not DoesEntityExist(currentVehicle) then
-                error('Le véhicule a disparu après personnalisation')
-            end
         end
         
-        Config.DebugPrint('Véhicule prêt pour placement')
-        
-        -- PLACEMENT DU JOUEUR DANS LE VÉHICULE (robuste)
-        Config.InfoPrint('═══ PLACEMENT JOUEUR DANS VÉHICULE ═══')
+        -- ✅ PLACEMENT JOUEUR
+        Config.InfoPrint('═══ PLACEMENT JOUEUR ═══')
         local placementSuccess = ForcePlayerIntoVehicle(ped, currentVehicle, -1)
         
         if not placementSuccess then
-            error('ÉCHEC CRITIQUE: Impossible de placer le joueur dans le véhicule')
+            error('Impossible de placer le joueur dans le véhicule')
         end
         
-        -- Libérer le modèle
         SetModelAsNoLongerNeeded(GetHashKey(vehicleModel))
         
         -- Fade in
-        Config.DebugPrint('Fade in...')
         DoScreenFadeIn(500)
-        while not IsScreenFadedIn() do
-            Wait(10)
-        end
-        Config.DebugPrint('Écran visible')
+        while not IsScreenFadedIn() do Wait(10) end
         
-        -- Marquer comme en jeu
         inGame = true
-        Config.SuccessPrint('État: EN JEU')
-        
-        -- Notification de démarrage
-        ShowGameNotification(Config.CoursePoursuit.Notifications.starting, 3000, 'info')
-        Wait(3000)
-        ShowGameNotification(Config.CoursePoursuit.Notifications.started, 3000, 'success')
-        
-        -- ✅ Initialiser le temps de début
         gameStartTime = GetGameTimer()
         
-        -- Calculer l'heure de fin si durée définie
+        -- ✅ La zone sera créée quand le joueur SORT du véhicule
+        Config.InfoPrint('Zone de guerre sera créée à votre première sortie')
+        
+        -- ✅ DÉCOMPTE 3-2-1-GO
+        StartCountdown()
+        
+        -- Calculer fin de jeu
         if Config.CoursePoursuit.GameDuration > 0 then
             gameEndTime = GetGameTimer() + (Config.CoursePoursuit.GameDuration * 1000)
-            Config.DebugPrint('Durée de jeu: ' .. Config.CoursePoursuit.GameDuration .. 's')
         end
         
-        -- Spawner un bot si mode solo activé
+        -- Spawner bot si solo
         if data.spawnBot then
-            Config.InfoPrint('Mode solo détecté, spawn du bot dans 2 secondes...')
+            Config.InfoPrint('Mode solo - spawn bot dans 2s')
             Wait(2000)
-            
-            local botSpawned = SpawnBotAdversary()
-            
-            if not botSpawned then
-                Config.ErrorPrint('Échec du spawn du bot, mais la partie continue')
-            end
+            SpawnBotAdversary()
         end
         
-        -- Démarrer les threads de gestion
+        -- Démarrer threads
         StartGameThreads()
         
-        Config.InfoPrint('═══════════════════════════════════════════════════════════════')
-        Config.SuccessPrint('COURSE POURSUITE DÉMARRÉE AVEC SUCCÈS!')
-        Config.InfoPrint('═══════════════════════════════════════════════════════════════')
+        Config.SuccessPrint('COURSE POURSUITE V2 DÉMARRÉE!')
     end)
     
-    -- Si erreur, restaurer l'écran et nettoyer
     if not success then
-        Config.ErrorPrint('═══════════════════════════════════════════════════════════════')
-        Config.ErrorPrint('ERREUR CRITIQUE lors du démarrage:')
-        Config.ErrorPrint(tostring(err))
-        Config.ErrorPrint('═══════════════════════════════════════════════════════════════')
+        Config.ErrorPrint('ERREUR: ' .. tostring(err))
         
-        -- TOUJOURS faire le fade in pour éviter écran noir
         if IsScreenFadedOut() then
             DoScreenFadeIn(500)
         end
         
-        -- Nettoyer
         if DoesEntityExist(currentVehicle) then
             DeleteEntity(currentVehicle)
             currentVehicle = nil
         end
         
         DeleteBot()
+        DeleteWarZone()
         
-        -- Notification d'erreur
-        ShowGameNotification('❌ Erreur lors du démarrage: ' .. tostring(err), 5000, 'error')
-        
-        -- Prévenir le serveur
+        ShowGameNotification('❌ Erreur: ' .. tostring(err), 5000, 'error')
         TriggerServerEvent('scharman:server:coursePoursuiteLeft', instanceId)
         
         inGame = false
@@ -737,42 +689,37 @@ end
 -- ARRÊT DU JEU
 -- ═══════════════════════════════════════════════════════════════
 
--- Arrêter le jeu
 local function StopCoursePoursuiteGame()
-    if not inGame then
-        Config.DebugPrint('Pas en jeu')
-        return
-    end
+    if not inGame then return end
     
     Config.InfoPrint('═══════════════════════════════════════════════════════════════')
-    Config.InfoPrint('ARRÊT DU MODE COURSE POURSUITE')
+    Config.InfoPrint('ARRÊT DU MODE COURSE POURSUITE V2')
     Config.InfoPrint('═══════════════════════════════════════════════════════════════')
     
-    -- Marquer comme pas en jeu
     inGame = false
-    
-    -- Arrêter les threads
     blockExitThread = nil
     zoneCheckThread = nil
+    vehicleExitThread = nil -- ✅ Arrêter le thread de détection sortie
+    damageZoneThread = nil -- ✅ Arrêter le thread de dégâts
     gameEndTime = nil
     gameStartTime = nil
-    warZoneThread = nil
-    
-    -- ✅ Nettoyer la zone de guerre
-    if warZoneBlip then
-        RemoveBlip(warZoneBlip)
-        warZoneBlip = nil
-    end
+    countdownActive = false
     canExitVehicle = false
-    warZoneActive = false
-    warZonePosition = nil
-    Config.DebugPrint('Zone de guerre nettoyée')
+    zoneCreatedOnExit = false -- ✅ Reset flag
+    currentBucket = 0 -- ✅ Reset bucket
+    
+    -- ✅ Masquer l'écran de mort si affiché
+    SendNUIMessage({
+        action = 'hideDeathScreen'
+    })
+    
+    -- ✅ SUPPRIMER LA ZONE DE GUERRE
+    DeleteWarZone()
     
     local ped = PlayerPedId()
     
-    -- Téléporter le joueur à la position de retour
+    -- Téléportation retour
     if Config.CoursePoursuit.ReturnToNormalCoords then
-        Config.DebugPrint('Téléportation de retour...')
         DoScreenFadeOut(500)
         Wait(500)
         
@@ -782,127 +729,51 @@ local function StopCoursePoursuiteGame()
         
         Wait(500)
         DoScreenFadeIn(500)
-        Config.DebugPrint('Joueur téléporté au PED')
     end
     
-    -- Supprimer le véhicule
+    -- ✅ SUPPRIMER LE VÉHICULE
     if DoesEntityExist(currentVehicle) then
         DeleteEntity(currentVehicle)
         currentVehicle = nil
         Config.DebugPrint('Véhicule joueur supprimé')
     end
     
-    -- Supprimer le bot
+    -- ✅ SUPPRIMER LE BOT
     DeleteBot()
     
-    -- Réinitialiser instanceId
     instanceId = nil
     
-    Config.InfoPrint('═══════════════════════════════════════════════════════════════')
     Config.SuccessPrint('NETTOYAGE TERMINÉ')
-    Config.InfoPrint('═══════════════════════════════════════════════════════════════')
 end
 
 -- ═══════════════════════════════════════════════════════════════
 -- THREADS DE GESTION
 -- ═══════════════════════════════════════════════════════════════
 
--- ═══════════════════════════════════════════════════════════════
--- ZONE DE GUERRE
--- ═══════════════════════════════════════════════════════════════
-
--- Créer le blip de la zone de guerre sur la map
-local function CreateWarZoneBlip()
-    if warZoneBlip then
-        RemoveBlip(warZoneBlip)
-    end
-    
-    warZoneBlip = AddBlipForRadius(warZonePosition.x, warZonePosition.y, warZonePosition.z, 50.0)
-    SetBlipHighDetail(warZoneBlip, true)
-    SetBlipColour(warZoneBlip, 1) -- Rouge
-    SetBlipAlpha(warZoneBlip, 128) -- Semi-transparent
-    
-    -- Ajouter un blip point au centre
-    local centerBlip = AddBlipForCoord(warZonePosition.x, warZonePosition.y, warZonePosition.z)
-    SetBlipSprite(centerBlip, 84) -- Icône crâne
-    SetBlipDisplay(centerBlip, 4)
-    SetBlipScale(centerBlip, 1.2)
-    SetBlipColour(centerBlip, 1) -- Rouge
-    SetBlipAsShortRange(centerBlip, false)
-    BeginTextCommandSetBlipName("STRING")
-    AddTextComponentString("🔴 ZONE DE GUERRE")
-    EndTextCommandSetBlipName(centerBlip)
-    
-    Config.SuccessPrint('Blip zone de guerre créé')
-end
-
--- Thread de rendu de la zone de guerre (colonne de lumière)
-local function StartWarZoneThread()
-    if warZoneThread then return end
-    
-    Config.InfoPrint('Thread de rendu zone de guerre démarré')
-    
-    warZoneThread = CreateThread(function()
-        while inGame and warZoneActive and warZonePosition do
-            Wait(0)
-            
-            local pos = warZonePosition
-            
-            -- Dessiner la colonne de lumière rouge (cylinder marker)
-            -- Type 28 = Cylindre vertical
-            DrawMarker(
-                28,                          -- Type : Cylindre vertical inversé (colonne)
-                pos.x, pos.y, pos.z,        -- Position
-                0.0, 0.0, 0.0,              -- Direction
-                0.0, 0.0, 0.0,              -- Rotation
-                50.0, 50.0, 150.0,          -- Scale (rayon 50m, hauteur 150m)
-                255, 0, 0, 100,             -- Couleur RGBA (rouge semi-transparent)
-                false,                       -- Bob up and down
-                false,                       -- Face camera
-                2,                           -- Rotation
-                false,                       -- Rotate
-                nil, nil,                   -- Texture
-                false                        -- Project
-            )
-            
-            -- Dessiner un cercle au sol (rayon 50m)
-            DrawMarker(
-                1,                           -- Type : Cylindre au sol
-                pos.x, pos.y, pos.z - 1.0,  -- Position (légèrement sous le sol)
-                0.0, 0.0, 0.0,              -- Direction
-                0.0, 0.0, 0.0,              -- Rotation
-                100.0, 100.0, 1.0,          -- Scale (diamètre 100m = rayon 50m)
-                255, 0, 0, 150,             -- Couleur RGBA (rouge)
-                false,                       -- Bob
-                false,                       -- Face camera
-                2,                           -- Rotation
-                false,                       -- Rotate
-                nil, nil,                   -- Texture
-                false                        -- Project
-            )
-        end
-        
-        warZoneThread = nil
-        Config.DebugPrint('Thread de rendu zone de guerre arrêté')
-    end)
-end
-
--- ═══════════════════════════════════════════════════════════════
--- THREADS DE GESTION
--- ═══════════════════════════════════════════════════════════════
-
--- Thread de blocage de sortie du véhicule
 local function StartBlockExitThread()
     if blockExitThread then return end
     
-    Config.DebugPrint('Thread de blocage de sortie démarré')
+    Config.DebugPrint('Thread blocage sortie démarré')
     
-    -- Démarrer le timer de 30 secondes
+    -- Timer 30 secondes
     CreateThread(function()
-        Wait(30000) -- 30 secondes
+        -- Afficher le message de blocage
+        SendNUIMessage({
+            action = 'showVehicleLock',
+            data = { duration = 30000 }
+        })
+        
+        Wait(30000)
+        
         canExitVehicle = true
-        Config.SuccessPrint('✅ Vous pouvez maintenant sortir du véhicule !')
-        ShowGameNotification('✅ Vous pouvez maintenant sortir du véhicule !', 5000, 'success')
+        
+        -- Masquer le message
+        SendNUIMessage({
+            action = 'hideVehicleLock'
+        })
+        
+        Config.SuccessPrint('✅ Vous pouvez maintenant sortir du véhicule!')
+        ShowGameNotification('✅ Vous pouvez maintenant sortir du véhicule!', 5000, 'success')
     end)
     
     blockExitThread = CreateThread(function()
@@ -914,41 +785,18 @@ local function StartBlockExitThread()
             local ped = PlayerPedId()
             local isInVehicle = IsPedInVehicle(ped, currentVehicle, false)
             
-            -- Si pas encore autorisé à sortir
             if not canExitVehicle then
-                -- Bloquer la touche F (sortir du véhicule)
-                DisableControlAction(0, 75, true) -- INPUT_VEH_EXIT
+                DisableControlAction(0, 75, true)
                 
-                -- Si le joueur essaye de sortir
                 if IsDisabledControlJustPressed(0, 75) then
                     local timeElapsed = (GetGameTimer() - gameStartTime) / 1000
                     local timeLeft = math.max(0, 30 - timeElapsed)
-                    ShowGameNotification(string.format('⏰ Attendez encore %d secondes avant de pouvoir sortir !', math.ceil(timeLeft)), 3000, 'warning')
-                    Config.DebugPrint('Tentative de sortie bloquée (trop tôt)')
+                    ShowGameNotification(string.format('⏰ Attendez encore %d secondes!', math.ceil(timeLeft)), 3000, 'warning')
                 end
                 
-                -- Si le joueur est sorti (par un bug), le remettre dans le véhicule
                 if DoesEntityExist(currentVehicle) and not isInVehicle then
-                    Config.DebugPrint('Joueur sorti du véhicule avant 30s, replacement forcé!')
                     ForcePlayerIntoVehicle(ped, currentVehicle, -1)
-                    ShowGameNotification('🚗 Retour forcé dans le véhicule ! Attendez 30 secondes.', 3000, 'warning')
-                end
-            else
-                -- Après 30s, autoriser la sortie mais détecter quand le joueur sort
-                if wasInVehicle and not isInVehicle and not warZoneActive then
-                    -- Le joueur vient de sortir du véhicule !
-                    local playerCoords = GetEntityCoords(ped)
-                    warZonePosition = playerCoords
-                    warZoneActive = true
-                    
-                    Config.SuccessPrint('🔴 ZONE DE GUERRE CRÉÉE À VOTRE POSITION !')
-                    ShowGameNotification('🔴 ZONE DE GUERRE créée à votre position !', 5000, 'error')
-                    
-                    -- Créer le blip sur la map
-                    CreateWarZoneBlip()
-                    
-                    -- Démarrer le thread de rendu de la zone
-                    StartWarZoneThread()
+                    ShowGameNotification('🚗 Retour forcé - Attendez 30s', 3000, 'warning')
                 end
             end
             
@@ -956,22 +804,99 @@ local function StartBlockExitThread()
         end
         
         blockExitThread = nil
-        Config.DebugPrint('Thread de blocage de sortie arrêté')
     end)
 end
 
--- Thread de vérification de zone
+-- ═══════════════════════════════════════════════════════════════
+-- THREAD DÉGÂTS ZONE DE GUERRE
+-- ═══════════════════════════════════════════════════════════════
+
+local damageZoneThread = nil
+
+local function StartDamageZoneThread()
+    if damageZoneThread then return end
+    
+    Config.InfoPrint('Thread dégâts zone de guerre démarré')
+    
+    damageZoneThread = CreateThread(function()
+        while inGame and warZoneActive do
+            Wait(2000) -- Vérifier toutes les 2 secondes
+            
+            -- Attendre que la zone soit créée
+            if not warZonePosition or not zoneCreatedOnExit then
+                goto continue
+            end
+            
+            local ped = PlayerPedId()
+            
+            -- Vérifier si le joueur est mort
+            if IsEntityDead(ped) or GetEntityHealth(ped) <= 0 then
+                Config.InfoPrint('💀 JOUEUR MORT DÉTECTÉ')
+                
+                -- Afficher écran de mort
+                SendNUIMessage({
+                    action = 'showDeathScreen'
+                })
+                
+                Wait(3000) -- Attendre 3 secondes
+                
+                -- Terminer la partie
+                StopCoursePoursuiteGame()
+                TriggerServerEvent('scharman:server:coursePoursuiteLeft', instanceId)
+                ShowGameNotification('💀 Vous êtes mort !', 3000, 'error')
+                
+                break
+            end
+            
+            local playerCoords = GetEntityCoords(ped)
+            local distance = #(playerCoords - warZonePosition)
+            
+            -- Si hors de la zone de guerre
+            if distance > warZoneRadius then
+                local currentHealth = GetEntityHealth(ped)
+                local newHealth = currentHealth - 20
+                
+                Config.DebugPrint('⚡ DÉGÂTS ZONE: -20 HP (Health: ' .. currentHealth .. ' → ' .. newHealth .. ')')
+                
+                -- Infliger dégâts
+                SetEntityHealth(ped, math.max(0, newHealth))
+                
+                -- Effet visuel
+                SetPedToRagdoll(ped, 500, 500, 0, 0, 0, 0)
+                
+                -- Notification
+                ShowGameNotification('⚡ DÉGÂTS ZONE: -20 HP', 1500, 'error')
+                
+                -- Vérifier si mort après dégâts
+                if newHealth <= 0 then
+                    Config.InfoPrint('💀 JOUEUR TUÉ PAR LA ZONE')
+                    -- Le thread détectera la mort au prochain cycle
+                end
+            end
+            
+            ::continue::
+        end
+        
+        damageZoneThread = nil
+        Config.DebugPrint('Thread dégâts zone de guerre arrêté')
+    end)
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- THREAD VÉRIFICATION ZONE (Téléportation)
+-- ═══════════════════════════════════════════════════════════════
+
 local function StartZoneCheckThread()
     if not Config.CoursePoursuit.UseZoneLimit then return end
     if zoneCheckThread then return end
     
-    Config.DebugPrint('Thread de vérification de zone démarré')
+    Config.DebugPrint('Thread vérification zone démarré')
     
     zoneCheckThread = CreateThread(function()
         local timeOutOfZone = 0
         
         while inGame do
-            Wait(1000) -- Vérifier chaque seconde
+            Wait(1000)
             
             local ped = PlayerPedId()
             local playerCoords = GetEntityCoords(ped)
@@ -982,13 +907,11 @@ local function StartZoneCheckThread()
                 timeOutOfZone = timeOutOfZone + 1
                 
                 if timeOutOfZone == 1 then
-                    ShowGameNotification('⚠️ Retournez dans la zone de jeu !', 3000, 'warning')
+                    ShowGameNotification('⚠️ Retournez dans la zone!', 3000, 'warning')
                 end
                 
                 if timeOutOfZone >= Config.CoursePoursuit.OutOfZoneTimeout then
-                    ShowGameNotification('🚫 Trop loin de la zone ! Téléportation...', 3000, 'error')
-                    
-                    -- Téléporter dans la zone
+                    ShowGameNotification('🚫 Trop loin - Téléportation...', 3000, 'error')
                     SetEntityCoords(ped, zoneCenter.x, zoneCenter.y, zoneCenter.z, false, false, false, true)
                     timeOutOfZone = 0
                 end
@@ -998,80 +921,112 @@ local function StartZoneCheckThread()
         end
         
         zoneCheckThread = nil
-        Config.DebugPrint('Thread de vérification de zone arrêté')
     end)
 end
 
--- Thread du timer de jeu
 local function StartGameTimerThread()
     if Config.CoursePoursuit.GameDuration <= 0 then return end
     
-    Config.DebugPrint('Thread timer de jeu démarré')
-    
     CreateThread(function()
         while inGame and gameEndTime do
-            Wait(1000) -- Vérifier chaque seconde
+            Wait(1000)
             
-            -- Vérifier que gameEndTime existe toujours (peut être nil après StopCoursePoursuiteGame)
-            if not gameEndTime then
-                break
-            end
+            if not gameEndTime then break end
             
             local timeLeft = gameEndTime - GetGameTimer()
             
             if timeLeft <= 0 then
-                ShowGameNotification('⏱️ Temps écoulé ! Fin de la partie.', 5000, 'info')
+                ShowGameNotification('⏱️ Temps écoulé!', 5000, 'info')
                 StopCoursePoursuiteGame()
                 TriggerServerEvent('scharman:server:coursePoursuiteLeft', instanceId)
                 break
             end
         end
-        
-        Config.DebugPrint('Thread timer de jeu arrêté')
     end)
 end
 
--- Démarrer tous les threads
+-- ═══════════════════════════════════════════════════════════════
+-- DÉTECTION SORTIE VÉHICULE (Pour créer la zone)
+-- ═══════════════════════════════════════════════════════════════
+
+local vehicleExitThread = nil
+local zoneCreatedOnExit = false
+
+local function StartVehicleExitDetectionThread()
+    if vehicleExitThread then return end
+    
+    zoneCreatedOnExit = false
+    
+    vehicleExitThread = CreateThread(function()
+        Config.DebugPrint('Thread détection sortie véhicule démarré')
+        
+        while inGame and not zoneCreatedOnExit do
+            Wait(500) -- Check toutes les 500ms
+            
+            local ped = PlayerPedId()
+            
+            -- Si le joueur peut sortir ET n'est PAS dans un véhicule
+            if canExitVehicle and not IsPedInAnyVehicle(ped, false) then
+                -- Créer la zone de guerre à la position actuelle
+                local coords = GetEntityCoords(ped)
+                CreateWarZone(coords)
+                ShowGameNotification('🔴 ZONE DE GUERRE créée à votre position !', 5000, 'warning')
+                
+                -- ✅ DONNER L'ARME CAL50
+                local weaponHash = GetHashKey('WEAPON_PISTOL50')
+                GiveWeaponToPed(ped, weaponHash, 250, false, true)
+                SetCurrentPedWeapon(ped, weaponHash, true)
+                Config.SuccessPrint('Arme donnée: Pistolet Cal .50')
+                ShowGameNotification('🔫 Pistolet Cal .50 équipé !', 3000, 'success')
+                
+                zoneCreatedOnExit = true
+                Config.SuccessPrint('Zone de guerre créée à la sortie du véhicule')
+                break
+            end
+        end
+        
+        vehicleExitThread = nil
+        Config.DebugPrint('Thread détection sortie véhicule arrêté')
+    end)
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- DÉMARRAGE DES THREADS
+-- ═══════════════════════════════════════════════════════════════
+
 function StartGameThreads()
-    Config.DebugPrint('Démarrage des threads de gestion...')
     StartBlockExitThread()
     StartZoneCheckThread()
     StartGameTimerThread()
-    Config.DebugPrint('Threads démarrés')
+    StartVehicleExitDetectionThread()
+    StartDamageZoneThread() -- ✅ Nouveau thread pour dégâts
 end
 
 -- ═══════════════════════════════════════════════════════════════
 -- ÉVÉNEMENTS
 -- ═══════════════════════════════════════════════════════════════
 
--- Démarrer le jeu
 RegisterNetEvent('scharman:client:startCoursePoursuit', function(data)
-    Config.DebugPrint('Événement startCoursePoursuit reçu')
     StartCoursePoursuiteGame(data)
 end)
 
--- Arrêter le jeu
 RegisterNetEvent('scharman:client:stopCoursePoursuit', function()
-    Config.DebugPrint('Événement stopCoursePoursuit reçu')
     StopCoursePoursuiteGame()
 end)
 
--- Notification
 RegisterNetEvent('scharman:client:courseNotification', function(message, duration, notifType)
     ShowGameNotification(message, duration or 3000, notifType or 'info')
 end)
 
 -- ═══════════════════════════════════════════════════════════════
--- COMMANDES DEBUG
+-- COMMANDES
 -- ═══════════════════════════════════════════════════════════════
 
--- Commande pour quitter la partie en cours
 RegisterCommand('quit_course', function()
     if inGame then
-        Config.InfoPrint('Commande /quit_course utilisée')
         StopCoursePoursuiteGame()
         TriggerServerEvent('scharman:server:coursePoursuiteLeft', instanceId)
-        ShowGameNotification('✅ Vous avez quitté la partie', 3000, 'success')
+        ShowGameNotification('✅ Vous avez quitté', 3000, 'success')
     else
         ShowGameNotification('❌ Vous n\'êtes pas en partie', 3000, 'error')
     end
@@ -1082,37 +1037,18 @@ if Config.Debug then
         if inGame then
             StopCoursePoursuiteGame()
             TriggerServerEvent('scharman:server:coursePoursuiteLeft', instanceId)
-            Config.InfoPrint('Course arrêtée manuellement')
-        else
-            Config.ErrorPrint('Tu n\'es pas en jeu')
         end
     end, false)
     
     RegisterCommand('course_info', function()
         print('═══════════════════════════════════════════════════════════════')
-        print('État du jeu: ' .. (inGame and 'EN JEU' or 'PAS EN JEU'))
+        print('État: ' .. (inGame and 'EN JEU' or 'PAS EN JEU'))
         print('Instance: ' .. (instanceId or 'Aucune'))
         print('Véhicule: ' .. (currentVehicle or 'Aucun'))
-        print('Véhicule existe: ' .. tostring(DoesEntityExist(currentVehicle)))
-        print('Bot PED: ' .. (botPed or 'Aucun'))
-        print('Bot Véhicule: ' .. (botVehicle or 'Aucun'))
-        
-        local ped = PlayerPedId()
-        local veh = GetVehiclePedIsIn(ped, false)
-        print('Joueur dans véhicule: ' .. tostring(veh))
-        print('Joueur dans currentVehicle: ' .. tostring(veh == currentVehicle))
-        
-        if gameEndTime then
-            local timeLeft = gameEndTime - GetGameTimer()
-            print('Temps restant: ' .. math.floor(timeLeft / 1000) .. 's')
-        end
+        print('Zone de guerre: ' .. (warZoneActive and 'ACTIVE' or 'INACTIVE'))
+        print('Peut sortir véhicule: ' .. (canExitVehicle and 'OUI' or 'NON'))
         print('═══════════════════════════════════════════════════════════════')
     end, false)
-    
-    Config.InfoPrint('Commandes de debug Course Poursuite disponibles')
-    Config.InfoPrint('- /quit_course : Quitter la partie en cours')
-    Config.InfoPrint('- /course_stop : Arrêter le jeu')
-    Config.InfoPrint('- /course_info : Afficher les informations')
 end
 
-Config.DebugPrint('Fichier client/course_poursuite.lua chargé avec succès')
+Config.DebugPrint('client/course_poursuite.lua V2 chargé')

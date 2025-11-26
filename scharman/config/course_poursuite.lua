@@ -4,7 +4,7 @@
 -- ╚════██║██║     ██╔══██║██╔══██║██╔══██╗██║╚██╔╝██║██╔══██║██║╚██╗██║
 -- ███████║╚██████╗██║  ██║██║  ██║██║  ██║██║ ╚═╝ ██║██║  ██║██║ ╚████║
 -- ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
--- CONFIGURATION - MODE COURSE POURSUITE
+-- CONFIGURATION - MODE COURSE POURSUITE V2
 -- ═══════════════════════════════════════════════════════════════
 
 Config.CoursePoursuit = {}
@@ -42,7 +42,7 @@ Config.CoursePoursuit.GameDuration = 300 -- 5 minutes
 Config.CoursePoursuit.SpawnCoords = vector4(-2124.83, -301.81, 13.09, 73.70)
 
 -- Modèle de véhicule à spawn
-Config.CoursePoursuit.VehicleModel = 'sultan' -- Modèle de voiture
+Config.CoursePoursuit.VehicleModel = 'sultan'
 
 -- Liste de véhicules possibles (choix aléatoire)
 Config.CoursePoursuit.VehicleList = {
@@ -69,21 +69,27 @@ Config.CoursePoursuit.VehicleCustomization = {
     
     -- Modifications
     mods = {
-        engine = 3,      -- Moteur niveau 3
-        brakes = 2,      -- Freins niveau 2
+        engine = 3,       -- Moteur niveau 3
+        brakes = 2,       -- Freins niveau 2
         transmission = 2, -- Transmission niveau 2
         suspension = 1,   -- Suspension niveau 1
-        armor = 0,       -- Pas d'armure
-        turbo = true     -- Turbo activé
+        armor = 0,        -- Pas d'armure
+        turbo = true      -- Turbo activé
     }
 }
 
 -- ═══════════════════════════════════════════════════════════════
--- RESTRICTIONS
+-- ✅ NOUVEAU: DÉCOMPTE ET RESTRICTIONS
 -- ═══════════════════════════════════════════════════════════════
 
--- Empêcher le joueur de sortir du véhicule
+-- Activer le décompte 3-2-1-GO au spawn
+Config.CoursePoursuit.EnableCountdown = true
+
+-- Empêcher le joueur de sortir du véhicule pendant X secondes
 Config.CoursePoursuit.BlockExitVehicle = true
+
+-- Durée du blocage de sortie (en secondes)
+Config.CoursePoursuit.BlockExitDuration = 30
 
 -- Message si le joueur tente de sortir
 Config.CoursePoursuit.BlockExitMessage = "Vous ne pouvez pas sortir du véhicule pour l'instant !"
@@ -95,11 +101,37 @@ Config.CoursePoursuit.MessageDuration = 3000
 Config.CoursePoursuit.DisableWeapons = true
 
 -- ═══════════════════════════════════════════════════════════════
+-- ✅ NOUVEAU: ZONE DE GUERRE
+-- ═══════════════════════════════════════════════════════════════
+
+-- Activer la zone de guerre automatique au spawn
+Config.CoursePoursuit.EnableWarZone = true
+
+-- Rayon de la zone de guerre (en mètres)
+Config.CoursePoursuit.WarZoneRadius = 50.0
+
+-- Couleur de la zone de guerre (RGB + Alpha)
+Config.CoursePoursuit.WarZoneColor = {
+    r = 255,
+    g = 0,
+    b = 0,
+    a = 100
+}
+
+-- Hauteur de la colonne de lumière (en mètres)
+Config.CoursePoursuit.WarZoneLightHeight = 150.0
+
+-- Type de blip pour le centre de la zone
+Config.CoursePoursuit.WarZoneBlipSprite = 84 -- Crâne
+
+-- Couleur du blip (1 = Rouge)
+Config.CoursePoursuit.WarZoneBlipColor = 1
+
+-- ═══════════════════════════════════════════════════════════════
 -- SYSTÈME D'INSTANCE (ROUTING BUCKETS)
 -- ═══════════════════════════════════════════════════════════════
 
 -- Range de routing buckets à utiliser (de 1000 à 2000)
--- Chaque instance aura son propre bucket
 Config.CoursePoursuit.BucketRange = {
     min = 1000,
     max = 2000
@@ -122,7 +154,10 @@ Config.CoursePoursuit.Notifications = {
     playerJoined = "✅ %s a rejoint la partie",
     playerLeft = "❌ %s a quitté la partie",
     instanceFull = "❌ Cette instance est pleine",
-    teleporting = "🚀 Téléportation en cours..."
+    teleporting = "🚀 Téléportation en cours...",
+    countdownStart = "⏱️ Préparez-vous...",
+    vehicleLocked = "🔒 Véhicule verrouillé pendant 30 secondes",
+    warZoneCreated = "🔴 ZONE DE GUERRE créée !"
 }
 
 -- ═══════════════════════════════════════════════════════════════
@@ -130,7 +165,7 @@ Config.CoursePoursuit.Notifications = {
 -- ═══════════════════════════════════════════════════════════════
 
 -- Position de retour après la partie (position du PED)
-Config.CoursePoursuit.ReturnToNormalCoords = vector4(215.68, -810.12, 30.73, 250.0)
+Config.CoursePoursuit.ReturnToNormalCoords = vector4(-2148.923096, -330.632966, 12.986084, 141.732284)
 
 -- Temps avant retour automatique (en secondes, 0 = désactivé)
 Config.CoursePoursuit.AutoReturnTime = 0
