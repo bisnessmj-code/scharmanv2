@@ -8,8 +8,8 @@
 -- ═══════════════════════════════════════════════════════════════
 
 local SCRIPT_NAME = 'Scharman PED'
-local SCRIPT_VERSION = '1.1.0'
-local SCRIPT_AUTHOR = 'ESX Legacy'
+local SCRIPT_VERSION = '1.1.0 (CORRIGÉE)'
+local SCRIPT_AUTHOR = 'ESX Legacy (Modifié)'
 
 -- ═══════════════════════════════════════════════════════════════
 -- VÉRIFICATION DES DÉPENDANCES

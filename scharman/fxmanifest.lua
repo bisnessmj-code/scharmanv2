@@ -8,8 +8,8 @@
 fx_version 'cerulean'
 game 'gta5'
 
-author 'ESX Legacy'
-description 'Script PED Scharman avec Interface Tablette + Course Poursuite'
+author 'ESX Legacy (Modifié)'
+description 'Script PED Scharman avec Interface Tablette + Course Poursuite 1v1 (CORRIGÉ)'
 version '1.1.0'
 lua54 'yes'
 
@@ -49,9 +49,7 @@ ui_page 'html/index.html'
 files {
     'html/index.html',
     'html/css/style.css',
-    'html/js/script.js',
-    'html/img/*.png',
-    'html/img/*.jpg'
+    'html/js/script.js'
 }
 
 -- ═══════════════════════════════════════════════════════════════

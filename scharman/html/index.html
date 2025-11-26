@@ -3,25 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Scharman - Interface Tablette</title>
-    
     <link rel="stylesheet" href="css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Système de notifications -->
     <div id="notification-container"></div>
     
-    <!-- Conteneur principal -->
     <div id="app" class="app-container hidden">
-        
-        <!-- Tablette -->
         <div class="tablet">
-            
-            <!-- Header -->
             <div class="tablet-header">
                 <div class="header-left">
                     <div class="logo-container">
@@ -29,95 +19,59 @@
                         <span class="logo-text">SCHARMAN</span>
                     </div>
                 </div>
-                
                 <div class="header-center">
                     <h1 class="header-title">MINI JEU PVP</h1>
                 </div>
-                
                 <div class="header-right">
-                    <button class="btn-close" id="closeBtn" title="Fermer (ESC)">
-                        <span class="close-icon">×</span>
-                    </button>
+                    <button class="btn-close" id="closeBtn"><span class="close-icon">×</span></button>
                 </div>
             </div>
             
-            <!-- Contenu -->
             <div class="tablet-content">
-                
-                <!-- Zone de bienvenue -->
                 <div class="welcome-section">
                     <div class="welcome-icon">🎮</div>
                     <h2 class="welcome-title">Bienvenue sur Scharman</h2>
-                    <p class="welcome-text">
-                        Préparez-vous à vivre une expérience PVP unique !<br>
-                        Choisissez votre mode de jeu et affrontez d'autres joueurs.
-                    </p>
+                    <p class="welcome-text">Préparez-vous à vivre une expérience PVP unique !<br>Choisissez votre mode de jeu et affrontez d'autres joueurs.</p>
                 </div>
                 
-                <!-- Ligne de séparation -->
                 <div class="divider"></div>
                 
-                <!-- Grille de cartes (modes de jeu) -->
                 <div class="cards-grid">
-                    
-                    <!-- Carte 1 - COURSE POURSUITE (ACTIVÉE) -->
                     <div class="game-card" data-mode="course">
-                        <div class="card-icon">🔫</div>
+                        <div class="card-icon">🏁</div>
                         <h3 class="card-title">COURSE POURSUITE</h3>
-                        <p class="card-description">
-                            Affrontement en voiture ! Échappez-vous ou poursuivez !
-                        </p>
-                        <button class="btn-primary">
-                            Jouer Maintenant
-                        </button>
+                        <p class="card-description">Affrontement en voiture ! Échappez-vous ou poursuivez !</p>
+                        <button class="btn-primary">Jouer Maintenant</button>
                     </div>
                     
-                    <!-- Carte 2 -->
                     <div class="game-card">
                         <div class="card-icon">🏆</div>
                         <h3 class="card-title">TOURNOI</h3>
-                        <p class="card-description">
-                            Participez à des tournois et gagnez des récompenses
-                        </p>
-                        <button class="btn-primary" disabled>
-                            Bientôt disponible
-                        </button>
+                        <p class="card-description">Participez à des tournois et gagnez des récompenses</p>
+                        <button class="btn-primary" disabled>Bientôt disponible</button>
                     </div>
                     
-                    <!-- Carte 3 -->
                     <div class="game-card">
                         <div class="card-icon">👥</div>
                         <h3 class="card-title">ÉQUIPE</h3>
-                        <p class="card-description">
-                            Formez une équipe et affrontez d'autres équipes
-                        </p>
-                        <button class="btn-primary" disabled>
-                            Bientôt disponible
-                        </button>
+                        <p class="card-description">Formez une équipe et affrontez d'autres équipes</p>
+                        <button class="btn-primary" disabled>Bientôt disponible</button>
                     </div>
                     
-                    <!-- Carte 4 -->
                     <div class="game-card">
                         <div class="card-icon">📊</div>
                         <h3 class="card-title">CLASSEMENT</h3>
-                        <p class="card-description">
-                            Consultez votre rang et vos statistiques
-                        </p>
-                        <button class="btn-primary" disabled>
-                            Bientôt disponible
-                        </button>
+                        <p class="card-description">Consultez votre rang et vos statistiques</p>
+                        <button class="btn-primary" disabled>Bientôt disponible</button>
                     </div>
-                    
                 </div>
                 
-                <!-- Ligne de séparation -->
                 <div class="divider"></div>
                 
-                <!-- Section informations -->
                 <div class="info-section">
                     <div class="info-box">
                         <div class="info-label">Version</div>
-                        <div class="info-value">1.0.0</div>
+                        <div class="info-value">1.1.0</div>
                     </div>
                     <div class="info-box">
                         <div class="info-label">Statut</div>
@@ -128,18 +82,12 @@
                         <div class="info-value">0 / 48</div>
                     </div>
                 </div>
-                
             </div>
             
-            <!-- Footer -->
             <div class="tablet-footer">
-                <div class="footer-text">
-                    Appuyez sur <span class="key-highlight">ESC</span> pour fermer
-                </div>
+                <div class="footer-text">Appuyez sur <span class="key-highlight">ESC</span> pour fermer</div>
             </div>
-            
         </div>
-        
     </div>
     
     <script src="js/script.js"></script>

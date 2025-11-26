@@ -17,12 +17,12 @@ Config.Debug = true
 Config.Locale = 'fr'
 
 -- ═══════════════════════════════════════════════════════════════
--- PED SCHARMAN
+-- PED SCHARMAN (Position par défaut - À MODIFIER)
 -- ═══════════════════════════════════════════════════════════════
 
 Config.Ped = {
     model = 'a_m_y_business_03',
-    coords = vector4(-2150.452636, -332.518676, 13.036622, 172.91339),
+    coords = vector4(-2148.923096, -330.632966, 12.986084, 141.732284), -- Legion Square
     scenario = 'WORLD_HUMAN_CLIPBOARD',
     invincible = true,
     freeze = true,
@@ -62,7 +62,7 @@ Config.Marker = {
 
 Config.Interaction = {
     distance = 2.5,
-    key = 38,
+    key = 38, -- E
     label = '[E] Ouvrir Scharman'
 }
 

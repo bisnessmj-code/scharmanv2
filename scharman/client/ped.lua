@@ -45,7 +45,7 @@ local function SpawnScharmanPed()
         Config.Ped.coords.z,
         Config.Ped.coords.w,
         false,
-        false
+        true  -- ✅ CORRECTION: true pour synchronisation réseau
     )
     
     if not DoesEntityExist(scharmanPed) then

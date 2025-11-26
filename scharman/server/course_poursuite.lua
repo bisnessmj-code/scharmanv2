@@ -186,12 +186,87 @@ local function AddPlayerToInstance(playerId, instance)
             xPlayer.getName(), playerId, instance.id, instance.bucket))
     end
     
-    -- Notifier le joueur
+    -- ✅ V5: Attendre 1 seconde pour que le joueur soit synchronisé dans le bucket
+    Wait(1000)
+    
+    -- ✅ V5: Créer le véhicule CÔTÉ SERVEUR dans le bon bucket (avec protection d'erreur)
+    local success, vehicleNetId = pcall(function()
+        local spawnCoords = Config.CoursePoursuit.SpawnCoords
+        local vehicleHash = GetHashKey(instance.vehicleModel)
+        
+        Config.DebugPrint('[SERVER] Création du véhicule dans bucket ' .. instance.bucket)
+        
+        -- Créer le véhicule côté serveur
+        local vehicle = CreateVehicle(
+            vehicleHash,
+            spawnCoords.x,
+            spawnCoords.y,
+            spawnCoords.z,
+            spawnCoords.w,
+            true,  -- networkObject
+            true   -- scriptHostObject
+        )
+        
+        -- Attendre que le véhicule soit créé
+        Wait(500)
+        
+        if not DoesEntityExist(vehicle) then
+            error('[SERVER] Échec création véhicule')
+        end
+        
+        -- Placer le véhicule dans le bon bucket
+        SetEntityRoutingBucket(vehicle, instance.bucket)
+        
+        Config.SuccessPrint('[SERVER] Véhicule créé: ' .. vehicle .. ' dans bucket ' .. instance.bucket)
+        
+        -- Récupérer le Network ID du véhicule
+        local netId = NetworkGetNetworkIdFromEntity(vehicle)
+        
+        if netId == 0 or netId == nil then
+            DeleteEntity(vehicle)
+            error('[SERVER] Échec récupération Network ID')
+        end
+        
+        Config.DebugPrint('[SERVER] Vehicle Network ID: ' .. netId)
+        Config.SuccessPrint('[SERVER] Véhicule créé et prêt')
+        Config.InfoPrint('[SERVER] La personnalisation sera faite côté client')
+        
+        return netId
+    end)
+    
+    -- Si la création du véhicule a échoué, nettoyer
+    if not success then
+        Config.ErrorPrint('[SERVER] ERREUR création véhicule: ' .. tostring(vehicleNetId))
+        Config.ErrorPrint('[SERVER] Nettoyage du joueur...')
+        
+        -- Retirer le joueur de l'instance
+        for i, pid in ipairs(instance.players) do
+            if pid == playerId then
+                table.remove(instance.players, i)
+                break
+            end
+        end
+        
+        -- Retirer le joueur de playersInGame
+        playersInGame[playerId] = nil
+        
+        -- Remettre le joueur dans le bucket 0
+        SetPlayerRoutingBucket(playerId, 0)
+        
+        -- Notifier le joueur
+        TriggerClientEvent('scharman:client:courseNotification', playerId, '❌ Erreur lors de la création du véhicule', 5000, 'error')
+        
+        return false
+    end
+    
+    -- Notifier le joueur avec le Network ID du véhicule
     TriggerClientEvent('scharman:client:startCoursePoursuit', playerId, {
         instanceId = instance.id,
         spawnCoords = Config.CoursePoursuit.SpawnCoords,
         vehicleModel = instance.vehicleModel,
-        spawnBot = (#instance.players == 1 and Config.CoursePoursuit.SpawnBotInSolo) -- Spawner bot si seul
+        spawnBot = (#instance.players == 1 and Config.CoursePoursuit.SpawnBotInSolo),
+        bucketId = instance.bucket,
+        vehicleNetId = vehicleNetId  -- ✅ V5: Envoyer le Network ID du véhicule créé serveur-side
     })
     
     -- Notifier les autres joueurs de l'instance

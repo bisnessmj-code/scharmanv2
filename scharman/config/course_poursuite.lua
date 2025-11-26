@@ -86,7 +86,7 @@ Config.CoursePoursuit.VehicleCustomization = {
 Config.CoursePoursuit.BlockExitVehicle = true
 
 -- Message si le joueur tente de sortir
-Config.CoursePoursuit.BlockExitMessage = "Vous ne pouvez pas drop pour l'instant !"
+Config.CoursePoursuit.BlockExitMessage = "Vous ne pouvez pas sortir du véhicule pour l'instant !"
 
 -- Durée d'affichage du message (en ms)
 Config.CoursePoursuit.MessageDuration = 3000
@@ -129,8 +129,8 @@ Config.CoursePoursuit.Notifications = {
 -- RETOUR À LA NORMALE
 -- ═══════════════════════════════════════════════════════════════
 
--- Position de retour après la partie
-Config.CoursePoursuit.ReturnToNormalCoords = vector4(215.68, -810.12, 30.73, 250.0) -- Position du PED
+-- Position de retour après la partie (position du PED)
+Config.CoursePoursuit.ReturnToNormalCoords = vector4(215.68, -810.12, 30.73, 250.0)
 
 -- Temps avant retour automatique (en secondes, 0 = désactivé)
 Config.CoursePoursuit.AutoReturnTime = 0
@@ -183,7 +183,7 @@ Config.CoursePoursuit.BotVehicleColor = {
     secondary = {r = 0, g = 0, b = 0}     -- Noir
 }
 
--- Position de spawn du bot (légèrement devant toi)
+-- Position de spawn du bot (offset depuis le joueur)
 Config.CoursePoursuit.BotSpawnOffset = vector3(10.0, 10.0, 0.0)
 
 -- Style de conduite du bot
