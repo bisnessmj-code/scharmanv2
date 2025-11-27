@@ -4,7 +4,7 @@
 -- ╚════██║██║     ██╔══██║██╔══██║██╔══██╗██║╚██╔╝██║██╔══██║██║╚██╗██║
 -- ███████║╚██████╗██║  ██║██║  ██║██║  ██║██║ ╚═╝ ██║██║  ██║██║ ╚████║
 -- ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
--- CLIENT - MODE COURSE POURSUITE V3 (PVP 1V1 SYNCHRONISÉ)
+-- CLIENT - MODE COURSE POURSUITE V3.3 FINALE (CHASSEUR vs CIBLE)
 -- ═══════════════════════════════════════════════════════════════
 
 -- ═══════════════════════════════════════════════════════════════
@@ -15,7 +15,7 @@ local inGame = false
 local currentVehicle = nil
 local instanceId = nil
 local currentBucket = 0
-local playerNumber = 1 -- 1 ou 2
+local myRole = nil -- 'chasseur' ou 'cible'
 local opponentId = nil
 
 -- Threads
@@ -24,6 +24,7 @@ local vehicleExitThread = nil
 local damageZoneThread = nil
 local warZoneThread = nil
 local warningMessageActive = false
+local zoneWaitingThread = nil
 
 -- Timers
 local gameEndTime = nil
@@ -36,15 +37,13 @@ local warZonePosition = nil
 local warZoneBlip = nil
 local warZoneCenterBlip = nil
 local warZoneRadius = Config.CoursePoursuit.WarZoneRadius
+
+-- États
+local iAmChasseur = false
+local iAmCible = false
 local zoneCreatedByMe = false
 local zoneCreatedByOpponent = false
-local opponentInZone = false
 local iAmInZone = false
-
--- Bot (mode test uniquement)
-local botPed = nil
-local botVehicle = nil
-local botMode = false
 
 -- ═══════════════════════════════════════════════════════════════
 -- FONCTIONS UTILITAIRES
@@ -88,12 +87,17 @@ local function LoadModel(model)
 end
 
 local function ForcePlayerIntoVehicle(ped, vehicle, seat)
-    Config.DebugPrint('Placement joueur dans véhicule...')
-    
-    if not DoesEntityExist(vehicle) or not DoesEntityExist(ped) then
-        Config.ErrorPrint('Véhicule ou PED inexistant!')
+    if not ped or not DoesEntityExist(ped) then
+        Config.ErrorPrint('PED invalide!')
         return false
     end
+    
+    if not vehicle or not DoesEntityExist(vehicle) then
+        Config.ErrorPrint('Véhicule invalide!')
+        return false
+    end
+    
+    Config.DebugPrint('Placement joueur dans véhicule...')
     
     SetVehicleOnGroundProperly(vehicle)
     Wait(100)
@@ -133,6 +137,11 @@ end
 -- ═══════════════════════════════════════════════════════════════
 
 local function CreateWarZoneVisuals(position)
+    if not position then
+        Config.ErrorPrint('[ZONE] Position invalide')
+        return false
+    end
+    
     -- Créer le blip de rayon (zone rouge)
     if warZoneBlip then
         RemoveBlip(warZoneBlip)
@@ -159,6 +168,7 @@ local function CreateWarZoneVisuals(position)
     EndTextCommandSetBlipName(warZoneCenterBlip)
     
     Config.SuccessPrint('Visuels zone de guerre créés')
+    return true
 end
 
 local function StartWarZoneThread()
@@ -170,6 +180,7 @@ local function StartWarZoneThread()
         while inGame and warZoneActive do
             Wait(0)
             
+            -- CRITICAL: Vérifier que warZonePosition existe
             if not warZonePosition then
                 Wait(100)
                 goto continue
@@ -221,7 +232,11 @@ local function CreateWarZone(position)
     warZoneActive = true
     zoneCreatedByMe = true
     
-    CreateWarZoneVisuals(position)
+    if not CreateWarZoneVisuals(position) then
+        Config.ErrorPrint('Échec création visuels zone')
+        return false
+    end
+    
     StartWarZoneThread()
     
     -- Informer le serveur
@@ -230,6 +245,7 @@ local function CreateWarZone(position)
     ShowGameNotification(Config.CoursePoursuit.Notifications.warZoneCreated, 5000, 'warning')
     
     Config.SuccessPrint('Zone créée à: ' .. tostring(position))
+    return true
 end
 
 local function DeleteWarZone()
@@ -239,7 +255,6 @@ local function DeleteWarZone()
     warZonePosition = nil
     zoneCreatedByMe = false
     zoneCreatedByOpponent = false
-    opponentInZone = false
     iAmInZone = false
     
     if warZoneBlip then
@@ -267,7 +282,14 @@ local function StartCountdown()
     Config.InfoPrint('⏱️ DÉCOMPTE 3-2-1-GO')
     
     local ped = PlayerPedId()
+    
+    -- FREEZE le joueur ET le véhicule pendant tout le décompte
     FreezeEntityPosition(ped, true)
+    if currentVehicle and DoesEntityExist(currentVehicle) then
+        FreezeEntityPosition(currentVehicle, true)
+        SetVehicleEngineOn(currentVehicle, false, true, false)
+    end
+    Config.DebugPrint('Joueur et véhicule freezés pour décompte')
     
     -- 3
     SendNUIMessage({ action = 'showCountdown', data = { number = 3 } })
@@ -287,106 +309,18 @@ local function StartCountdown()
     -- GO!
     SendNUIMessage({ action = 'showCountdown', data = { number = 'GO!' } })
     PlaySoundFrontend(-1, 'RACE_PLACED', 'HUD_AWARDS', true)
-    
-    FreezeEntityPosition(ped, false)
     Wait(1000)
+    
+    -- DÉFREEZE le joueur ET le véhicule - tous partent en même temps
+    FreezeEntityPosition(ped, false)
+    if currentVehicle and DoesEntityExist(currentVehicle) then
+        FreezeEntityPosition(currentVehicle, false)
+        SetVehicleEngineOn(currentVehicle, true, true, false)
+    end
+    Config.SuccessPrint('Joueur et véhicule défreezés - GO!')
     
     SendNUIMessage({ action = 'hideCountdown' })
     Config.SuccessPrint('✅ Décompte terminé!')
-end
-
--- ═══════════════════════════════════════════════════════════════
--- GESTION BOT (MODE TEST)
--- ═══════════════════════════════════════════════════════════════
-
-local function DeleteBot()
-    if DoesEntityExist(botVehicle) then
-        DeleteEntity(botVehicle)
-        botVehicle = nil
-    end
-    
-    if DoesEntityExist(botPed) then
-        DeleteEntity(botPed)
-        botPed = nil
-    end
-    
-    Config.SuccessPrint('Bot supprimé')
-end
-
-local function SpawnBot()
-    Config.InfoPrint('🤖 SPAWN BOT (MODE TEST)')
-    
-    local ped = PlayerPedId()
-    local playerCoords = GetEntityCoords(ped)
-    local playerHeading = GetEntityHeading(ped)
-    
-    -- Calcul position spawn
-    local offset = Config.CoursePoursuit.Bot.spawnOffset
-    local forwardX = math.cos(math.rad(playerHeading))
-    local forwardY = math.sin(math.rad(playerHeading))
-    
-    local botCoords = vector3(
-        playerCoords.x + (forwardX * offset.x) + offset.y,
-        playerCoords.y + (forwardY * offset.x),
-        playerCoords.z + offset.z
-    )
-    
-    -- Charger modèle PED
-    if not LoadModel(Config.CoursePoursuit.Bot.model) then
-        return false
-    end
-    
-    local modelHash = GetHashKey(Config.CoursePoursuit.Bot.model)
-    
-    -- Créer PED LOCAL
-    botPed = CreatePed(4, modelHash, botCoords.x, botCoords.y, botCoords.z, playerHeading, false, false)
-    
-    if not DoesEntityExist(botPed) then
-        Config.ErrorPrint('Échec création bot')
-        return false
-    end
-    
-    SetEntityInvincible(botPed, true)
-    SetBlockingOfNonTemporaryEvents(botPed, true)
-    SetPedCanRagdoll(botPed, false)
-    
-    Wait(500)
-    
-    -- Charger véhicule
-    if not LoadModel(Config.CoursePoursuit.Bot.vehicle) then
-        DeleteEntity(botPed)
-        return false
-    end
-    
-    local vehicleHash = GetHashKey(Config.CoursePoursuit.Bot.vehicle)
-    botVehicle = CreateVehicle(vehicleHash, botCoords.x, botCoords.y, botCoords.z, playerHeading, false, false)
-    
-    if not DoesEntityExist(botVehicle) then
-        Config.ErrorPrint('Échec création véhicule bot')
-        DeleteEntity(botPed)
-        return false
-    end
-    
-    local botColor = Config.CoursePoursuit.Bot.vehicleColor
-    SetVehicleCustomPrimaryColour(botVehicle, botColor.primary.r, botColor.primary.g, botColor.primary.b)
-    SetVehicleCustomSecondaryColour(botVehicle, botColor.secondary.r, botColor.secondary.g, botColor.secondary.b)
-    SetVehicleNumberPlateText(botVehicle, 'BOT~AI')
-    
-    Wait(1000)
-    
-    -- Placer bot dans véhicule
-    TaskWarpPedIntoVehicle(botPed, botVehicle, -1)
-    Wait(1000)
-    
-    -- Conduite aléatoire
-    if Config.CoursePoursuit.Bot.randomRoute then
-        TaskVehicleDriveWander(botPed, botVehicle, Config.CoursePoursuit.Bot.speed, Config.CoursePoursuit.Bot.drivingStyle)
-    end
-    
-    Config.SuccessPrint('🤖 Bot spawné!')
-    ShowGameNotification('🤖 Bot adversaire spawné !', 4000, 'success')
-    
-    return true
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -399,12 +333,8 @@ local function StartDamageZoneThread()
     Config.InfoPrint('[DAMAGE] 🔴 Démarrage thread dégâts')
     
     damageZoneThread = CreateThread(function()
-        while inGame and warZoneActive do
+        while inGame and warZoneActive and warZonePosition do
             Wait(Config.CoursePoursuit.DamageInterval)
-            
-            if not warZonePosition then
-                goto continue
-            end
             
             local ped = PlayerPedId()
             
@@ -436,7 +366,7 @@ local function StartDamageZoneThread()
                     warningMessageActive = true
                     
                     CreateThread(function()
-                        while inGame and distance > warZoneRadius do
+                        while inGame and warZonePosition and distance > warZoneRadius do
                             ShowGameNotification(Config.CoursePoursuit.Notifications.outOfZone, 1500, 'warning')
                             Wait(2000)
                             
@@ -445,7 +375,9 @@ local function StartDamageZoneThread()
                         end
                         
                         warningMessageActive = false
-                        ShowGameNotification('✅ Retour dans la zone!', 2000, 'success')
+                        if inGame then
+                            ShowGameNotification('✅ Retour dans la zone!', 2000, 'success')
+                        end
                     end)
                 end
                 
@@ -455,8 +387,6 @@ local function StartDamageZoneThread()
             else
                 warningMessageActive = false
             end
-            
-            ::continue::
         end
         
         damageZoneThread = nil
@@ -482,12 +412,17 @@ local function StartBlockExitThread()
         
         Wait(Config.CoursePoursuit.BlockExitDuration * 1000)
         
-        canExitVehicle = true
+        -- IMPORTANT: Seul le CHASSEUR peut sortir après 30s
+        if iAmChasseur then
+            canExitVehicle = true
+            Config.SuccessPrint('✅ Sortie véhicule autorisée (CHASSEUR)!')
+            ShowGameNotification(Config.CoursePoursuit.Notifications.canExitVehicle, 5000, 'success')
+        else
+            Config.InfoPrint('⏳ CIBLE en attente de la zone...')
+            ShowGameNotification(Config.CoursePoursuit.Notifications.mustJoinZone, 5000, 'warning')
+        end
         
         SendNUIMessage({ action = 'hideVehicleLock' })
-        
-        Config.SuccessPrint('✅ Sortie véhicule autorisée!')
-        ShowGameNotification(Config.CoursePoursuit.Notifications.canExitVehicle, 5000, 'success')
     end)
     
     blockExitThread = CreateThread(function()
@@ -503,12 +438,21 @@ local function StartBlockExitThread()
                 if IsDisabledControlJustPressed(0, 75) then
                     local timeElapsed = (GetGameTimer() - gameStartTime) / 1000
                     local timeLeft = math.max(0, Config.CoursePoursuit.BlockExitDuration - timeElapsed)
-                    ShowGameNotification(string.format('⏰ Attendez encore %d secondes!', math.ceil(timeLeft)), 3000, 'warning')
+                    
+                    if iAmCible and timeLeft <= 0 then
+                        ShowGameNotification(Config.CoursePoursuit.Notifications.mustJoinZone, 3000, 'warning')
+                    else
+                        ShowGameNotification(string.format('⏰ Attendez encore %d secondes!', math.ceil(timeLeft)), 3000, 'warning')
+                    end
                 end
                 
                 if DoesEntityExist(currentVehicle) and not isInVehicle then
                     ForcePlayerIntoVehicle(ped, currentVehicle, -1)
-                    ShowGameNotification('🚗 Retour forcé - Attendez', 3000, 'warning')
+                    if iAmCible then
+                        ShowGameNotification(Config.CoursePoursuit.Notifications.joinZoneFirst, 3000, 'warning')
+                    else
+                        ShowGameNotification('🚗 Retour forcé - Attendez', 3000, 'warning')
+                    end
                 end
             end
         end
@@ -518,16 +462,21 @@ local function StartBlockExitThread()
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- THREAD DÉTECTION SORTIE VÉHICULE
+-- THREAD DÉTECTION SORTIE VÉHICULE (CHASSEUR uniquement)
 -- ═══════════════════════════════════════════════════════════════
 
 local function StartVehicleExitDetectionThread()
+    if not iAmChasseur then
+        Config.InfoPrint('[CHASSEUR] Thread détection sortie ignoré (je suis CIBLE)')
+        return
+    end
+    
     if vehicleExitThread then return end
     
     vehicleExitThread = CreateThread(function()
-        Config.DebugPrint('Thread détection sortie démarré')
+        Config.DebugPrint('[CHASSEUR] Thread détection sortie démarré')
         
-        while inGame and not zoneCreatedByMe do
+        while inGame and not zoneCreatedByMe and iAmChasseur do
             Wait(500)
             
             local ped = PlayerPedId()
@@ -536,40 +485,60 @@ local function StartVehicleExitDetectionThread()
             if canExitVehicle and not IsPedInAnyVehicle(ped, false) then
                 -- Créer zone de guerre
                 local coords = GetEntityCoords(ped)
-                CreateWarZone(coords)
                 
-                -- Donner arme
-                local weaponHash = GetHashKey(Config.CoursePoursuit.WeaponHash)
-                GiveWeaponToPed(ped, weaponHash, Config.CoursePoursuit.WeaponAmmo, false, true)
-                SetCurrentPedWeapon(ped, weaponHash, true)
-                
-                ShowGameNotification(Config.CoursePoursuit.Notifications.weaponGiven, 3000, 'success')
-                Config.SuccessPrint('Zone créée & arme donnée')
-                
-                -- Démarrer thread dégâts
-                StartDamageZoneThread()
+                if CreateWarZone(coords) then
+                    -- Donner arme
+                    local weaponHash = GetHashKey(Config.CoursePoursuit.WeaponHash)
+                    GiveWeaponToPed(ped, weaponHash, Config.CoursePoursuit.WeaponAmmo, false, true)
+                    SetCurrentPedWeapon(ped, weaponHash, true)
+                    
+                    ShowGameNotification(Config.CoursePoursuit.Notifications.weaponGiven, 3000, 'success')
+                    ShowGameNotification(Config.CoursePoursuit.Notifications.waitingCible, 5000, 'info')
+                    Config.SuccessPrint('[CHASSEUR] Zone créée & arme donnée')
+                    
+                    -- Démarrer thread dégâts
+                    StartDamageZoneThread()
+                else
+                    Config.ErrorPrint('[CHASSEUR] Échec création zone')
+                end
                 
                 break
             end
         end
         
         vehicleExitThread = nil
-        Config.DebugPrint('Thread détection sortie arrêté')
+        Config.DebugPrint('[CHASSEUR] Thread détection sortie arrêté')
     end)
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- THREAD VÉRIFICATION PRÉSENCE DANS ZONE (pour adversaire)
+-- THREAD VÉRIFICATION PRÉSENCE DANS ZONE (CIBLE uniquement)
 -- ═══════════════════════════════════════════════════════════════
 
 local function StartZonePresenceCheckThread()
-    CreateThread(function()
-        while inGame and zoneCreatedByOpponent and not iAmInZone do
+    if not iAmCible then
+        Config.InfoPrint('[CIBLE] Thread présence zone ignoré (je suis CHASSEUR)')
+        return
+    end
+    
+    if zoneWaitingThread then return end
+    
+    zoneWaitingThread = CreateThread(function()
+        Config.InfoPrint('[CIBLE] Attente zone adverse...')
+        
+        while inGame and not warZonePosition do
             Wait(500)
-            
-            if not warZonePosition then
-                goto continue
-            end
+        end
+        
+        if not inGame then
+            zoneWaitingThread = nil
+            return
+        end
+        
+        Config.InfoPrint('[CIBLE] Zone détectée! Vérification présence...')
+        
+        while inGame and iAmCible and not iAmInZone and warZonePosition do
+            Wait(500)
             
             local ped = PlayerPedId()
             local playerCoords = GetEntityCoords(ped)
@@ -578,28 +547,28 @@ local function StartZonePresenceCheckThread()
             -- Si dans la zone
             if distance <= warZoneRadius then
                 iAmInZone = true
-                canExitVehicle = true -- Autoriser sortie
+                canExitVehicle = true
                 
-                Config.SuccessPrint('✅ Je suis dans la zone adverse!')
+                Config.SuccessPrint('[CIBLE] ✅ Je suis dans la zone adverse!')
                 
                 -- Informer serveur
                 TriggerServerEvent('scharman:server:playerEnteredZone', instanceId)
                 
-                ShowGameNotification('✅ Zone rejointe ! Vous pouvez descendre !', 5000, 'success')
+                ShowGameNotification(Config.CoursePoursuit.Notifications.zoneJoined, 5000, 'success')
                 
-                -- Donner arme si descendu
-                if not IsPedInAnyVehicle(ped, false) then
-                    local weaponHash = GetHashKey(Config.CoursePoursuit.WeaponHash)
-                    GiveWeaponToPed(ped, weaponHash, Config.CoursePoursuit.WeaponAmmo, false, true)
-                    SetCurrentPedWeapon(ped, weaponHash, true)
-                    ShowGameNotification(Config.CoursePoursuit.Notifications.weaponGiven, 3000, 'success')
-                end
+                -- IMPORTANT: Donner arme dès maintenant (même si encore dans véhicule)
+                local weaponHash = GetHashKey(Config.CoursePoursuit.WeaponHash)
+                GiveWeaponToPed(ped, weaponHash, Config.CoursePoursuit.WeaponAmmo, false, true)
+                SetCurrentPedWeapon(ped, weaponHash, true)
+                ShowGameNotification(Config.CoursePoursuit.Notifications.weaponGiven, 3000, 'success')
+                Config.SuccessPrint('[CIBLE] Arme donnée!')
                 
                 break
             end
-            
-            ::continue::
         end
+        
+        zoneWaitingThread = nil
+        Config.DebugPrint('[CIBLE] Thread présence zone arrêté')
     end)
 end
 
@@ -611,25 +580,38 @@ local function StartCoursePoursuiteGame(data)
     if inGame then return end
     
     Config.InfoPrint('═══════════════════════════════════════════════════════════════')
-    Config.InfoPrint('DÉMARRAGE COURSE POURSUITE V3 (PVP 1V1)')
+    Config.InfoPrint('DÉMARRAGE COURSE POURSUITE V3.3 FINALE (CHASSEUR vs CIBLE)')
     Config.InfoPrint('═══════════════════════════════════════════════════════════════')
     
     local success, err = pcall(function()
         local ped = PlayerPedId()
         instanceId = data.instanceId
-        playerNumber = data.playerNumber
+        myRole = data.role
         opponentId = data.opponentId
-        botMode = data.botMode or false
+        
+        iAmChasseur = (myRole == 'chasseur')
+        iAmCible = (myRole == 'cible')
+        
+        Config.InfoPrint('Mon rôle: ' .. string.upper(myRole))
+        Config.InfoPrint('Adversaire: ' .. opponentId)
         
         -- Sélection spawn
-        local spawnCoords = data.spawnCoords or (playerNumber == 1 and Config.CoursePoursuit.SpawnCoords.player1 or Config.CoursePoursuit.SpawnCoords.player2)
+        local spawnCoords = data.spawnCoords
         local vehicleModel = data.vehicleModel or Config.CoursePoursuit.VehicleModel
+        
+        -- Afficher rôle
+        if iAmChasseur then
+            ShowGameNotification(Config.CoursePoursuit.Notifications.roleChasseur, 5000, 'info')
+        else
+            ShowGameNotification(Config.CoursePoursuit.Notifications.roleCible, 5000, 'info')
+        end
         
         ShowGameNotification(Config.CoursePoursuit.Notifications.teleporting, 2000, 'info')
         
         DoScreenFadeOut(800)
         while not IsScreenFadedOut() do Wait(10) end
         
+        -- Téléportation
         SetEntityCoords(ped, spawnCoords.x, spawnCoords.y, spawnCoords.z, false, false, false, true)
         SetEntityHeading(ped, spawnCoords.w)
         
@@ -643,6 +625,10 @@ local function StartCoursePoursuiteGame(data)
         else
             Wait(3000)
         end
+        
+        -- Reset HP à 200
+        SetEntityHealth(ped, Config.CoursePoursuit.PlayerHealth)
+        Config.SuccessPrint('HP joueur: ' .. Config.CoursePoursuit.PlayerHealth)
         
         Wait(1000)
         
@@ -676,7 +662,9 @@ local function StartCoursePoursuiteGame(data)
         end
         
         -- Personnalisation véhicule
-        local customization = playerNumber == 1 and Config.CoursePoursuit.VehicleCustomization.player1 or Config.CoursePoursuit.VehicleCustomization.player2
+        local customKey = iAmChasseur and 'chasseur' or 'cible'
+        local customization = Config.CoursePoursuit.VehicleCustomization[customKey]
+        
         SetVehicleCustomPrimaryColour(currentVehicle, customization.primaryColor.r, customization.primaryColor.g, customization.primaryColor.b)
         SetVehicleCustomSecondaryColour(currentVehicle, customization.secondaryColor.r, customization.secondaryColor.g, customization.secondaryColor.b)
         SetVehicleNumberPlateText(currentVehicle, customization.plate)
@@ -719,16 +707,10 @@ local function StartCoursePoursuiteGame(data)
             gameEndTime = GetGameTimer() + (Config.CoursePoursuit.GameDuration * 1000)
         end
         
-        -- Spawner bot si mode test
-        if botMode then
-            Config.InfoPrint('MODE BOT ACTIVÉ')
-            Wait(2000)
-            SpawnBot()
-        end
-        
         -- Démarrer threads
         StartBlockExitThread()
-        StartVehicleExitDetectionThread()
+        StartVehicleExitDetectionThread() -- Seulement si CHASSEUR
+        StartZonePresenceCheckThread()     -- Seulement si CIBLE
         
         Config.SuccessPrint('PARTIE DÉMARRÉE!')
     end)
@@ -745,7 +727,6 @@ local function StartCoursePoursuiteGame(data)
             currentVehicle = nil
         end
         
-        DeleteBot()
         DeleteWarZone()
         
         ShowGameNotification('❌ Erreur: ' .. tostring(err), 5000, 'error')
@@ -764,31 +745,39 @@ local function StopCoursePoursuiteGame(showVictory)
     if not inGame then return end
     
     Config.InfoPrint('═══════════════════════════════════════════════════════════════')
-    Config.InfoPrint('ARRÊT COURSE POURSUITE V3')
+    Config.InfoPrint('ARRÊT COURSE POURSUITE V3.3 FINALE')
     Config.InfoPrint('═══════════════════════════════════════════════════════════════')
     
+    -- CRITIQUE: Arrêter inGame EN PREMIER pour stopper tous les threads
     inGame = false
+    
+    -- Attendre que les threads se terminent
+    Wait(100)
+    
+    -- Reset variables threads
     blockExitThread = nil
     vehicleExitThread = nil
     damageZoneThread = nil
+    zoneWaitingThread = nil
     gameEndTime = nil
     gameStartTime = nil
     canExitVehicle = false
     zoneCreatedByMe = false
     zoneCreatedByOpponent = false
-    opponentInZone = false
     iAmInZone = false
+    iAmChasseur = false
+    iAmCible = false
     currentBucket = 0
     warningMessageActive = false
-    playerNumber = 1
+    myRole = nil
     opponentId = nil
-    botMode = false
     
     -- Masquer écrans
     SendNUIMessage({ action = 'hideDeathScreen' })
     SendNUIMessage({ action = 'hideVehicleLock' })
+    SendNUIMessage({ action = 'hideCountdown' })
     
-    -- Supprimer zone
+    -- Supprimer zone AVANT téléportation (CRITIQUE)
     DeleteWarZone()
     
     local ped = PlayerPedId()
@@ -802,15 +791,22 @@ local function StopCoursePoursuiteGame(showVictory)
         Wait(500)
         
         local returnCoords = Config.CoursePoursuit.ReturnToNormalCoords
+        
+        -- Ressusciter si mort AVANT téléportation
+        if IsEntityDead(ped) or GetEntityHealth(ped) <= 0 then
+            NetworkResurrectLocalPlayer(returnCoords.x, returnCoords.y, returnCoords.z, returnCoords.w, true, false)
+            Wait(500)
+        end
+        
+        -- Reset HP complet
+        SetEntityHealth(ped, 200)
+        ClearPedTasksImmediately(ped)
+        
+        -- Téléportation SANS boucle de placement véhicule
         SetEntityCoords(ped, returnCoords.x, returnCoords.y, returnCoords.z, false, false, false, true)
         SetEntityHeading(ped, returnCoords.w)
         
-        -- Ressusciter si mort
-        if IsEntityDead(ped) or GetEntityHealth(ped) <= 0 then
-            NetworkResurrectLocalPlayer(returnCoords.x, returnCoords.y, returnCoords.z, returnCoords.w, true, false)
-            SetEntityHealth(ped, 200)
-            ClearPedTasksImmediately(ped)
-        end
+        Config.SuccessPrint('Téléportation retour réussie')
         
         Wait(500)
         
@@ -831,9 +827,6 @@ local function StopCoursePoursuiteGame(showVictory)
         DeleteEntity(currentVehicle)
         currentVehicle = nil
     end
-    
-    -- Supprimer bot
-    DeleteBot()
     
     instanceId = nil
     
@@ -856,32 +849,36 @@ RegisterNetEvent('scharman:client:courseNotification', function(message, duratio
     ShowGameNotification(message, duration or 3000, notifType or 'info')
 end)
 
--- Événement: L'adversaire a créé la zone
+-- Événement: L'adversaire (CHASSEUR) a créé la zone
 RegisterNetEvent('scharman:client:opponentCreatedZone', function(position)
-    Config.InfoPrint('⚠️ ADVERSAIRE A CRÉÉ LA ZONE!')
+    if not position then
+        Config.ErrorPrint('[CIBLE] Position zone invalide reçue')
+        return
+    end
+    
+    Config.InfoPrint('[CIBLE] ⚠️ CHASSEUR A CRÉÉ LA ZONE!')
+    Config.DebugPrint('[CIBLE] Position: ' .. tostring(position))
     
     warZonePosition = position
     warZoneActive = true
     zoneCreatedByOpponent = true
     
-    CreateWarZoneVisuals(position)
+    if not CreateWarZoneVisuals(position) then
+        Config.ErrorPrint('[CIBLE] Échec création visuels zone')
+        return
+    end
+    
     StartWarZoneThread()
     
     ShowGameNotification(Config.CoursePoursuit.Notifications.opponentCreatedZone, 5000, 'warning')
-    ShowGameNotification(Config.CoursePoursuit.Notifications.waitingOpponent, 5000, 'info')
-    
-    -- Démarrer vérification présence dans zone
-    StartZonePresenceCheckThread()
+    ShowGameNotification(Config.CoursePoursuit.Notifications.joinZoneFirst, 5000, 'info')
 end)
 
--- Événement: L'adversaire a rejoint la zone
+-- Événement: La CIBLE a rejoint la zone
 RegisterNetEvent('scharman:client:opponentEnteredZone', function()
-    Config.InfoPrint('✅ ADVERSAIRE DANS LA ZONE!')
+    Config.InfoPrint('[CHASSEUR] ✅ CIBLE DANS LA ZONE!')
     
-    opponentInZone = true
-    canExitVehicle = true
-    
-    ShowGameNotification(Config.CoursePoursuit.Notifications.opponentInZone, 5000, 'success')
+    ShowGameNotification(Config.CoursePoursuit.Notifications.cibleInZone, 5000, 'success')
     
     -- Démarrer thread dégâts si pas déjà fait
     if not damageZoneThread and warZoneActive then
@@ -911,46 +908,23 @@ RegisterCommand('quit_course', function()
     end
 end, false)
 
--- Commande admin: Spawner un bot
-RegisterCommand('botscharman', function()
-    if not inGame then
-        ShowGameNotification('❌ Vous devez être en partie', 3000, 'error')
-        return
-    end
-    
-    if botMode then
-        ShowGameNotification('❌ Un bot existe déjà', 3000, 'error')
-        return
-    end
-    
-    botMode = true
-    local spawned = SpawnBot()
-    
-    if spawned then
-        ShowGameNotification('✅ Bot spawné en mode test', 3000, 'success')
-    else
-        ShowGameNotification('❌ Échec spawn bot', 3000, 'error')
-        botMode = false
-    end
-end, false)
-
 if Config.Debug then
     RegisterCommand('course_info', function()
         print('═══════════════════════════════════════════════════════════════')
         print('État: ' .. (inGame and 'EN JEU' or 'PAS EN JEU'))
+        print('Rôle: ' .. (myRole or 'Aucun'))
         print('Instance: ' .. (instanceId or 'Aucune'))
-        print('Joueur: ' .. playerNumber .. (opponentId and (' vs ' .. opponentId) or ''))
+        print('Adversaire: ' .. (opponentId or 'Aucun'))
         print('Véhicule: ' .. (currentVehicle or 'Aucun'))
         print('Bucket: ' .. currentBucket)
         print('Zone active: ' .. (warZoneActive and 'OUI' or 'NON'))
+        print('Zone position: ' .. (warZonePosition and tostring(warZonePosition) or 'Aucune'))
         print('Zone créée par moi: ' .. (zoneCreatedByMe and 'OUI' or 'NON'))
         print('Zone créée par adversaire: ' .. (zoneCreatedByOpponent and 'OUI' or 'NON'))
-        print('Adversaire dans zone: ' .. (opponentInZone and 'OUI' or 'NON'))
         print('Je suis dans zone: ' .. (iAmInZone and 'OUI' or 'NON'))
         print('Peut sortir véhicule: ' .. (canExitVehicle and 'OUI' or 'NON'))
-        print('Mode bot: ' .. (botMode and 'OUI' or 'NON'))
         print('═══════════════════════════════════════════════════════════════')
     end, false)
 end
 
-Config.DebugPrint('client/course_poursuite.lua V3 chargé')
+Config.DebugPrint('client/course_poursuite.lua V3.3 FINALE chargé')

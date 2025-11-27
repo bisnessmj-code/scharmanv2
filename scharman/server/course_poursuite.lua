@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════
--- SERVER - MODE COURSE POURSUITE V3 (PVP 1V1 MATCHMAKING)
+-- SERVER - MODE COURSE POURSUITE V3.3 FINALE (CHASSEUR vs CIBLE)
 -- ═══════════════════════════════════════════════════════════════
 
 ESX = exports['es_extended']:getSharedObject()
@@ -43,7 +43,7 @@ end
 -- GESTION INSTANCES
 -- ═══════════════════════════════════════════════════════════════
 
-local function CreateInstance(player1Id, player2Id)
+local function CreateInstance(chasseurId, cibleId)
     local instanceCount = 0
     for _ in pairs(activeInstances) do instanceCount = instanceCount + 1 end
     
@@ -59,8 +59,8 @@ local function CreateInstance(player1Id, player2Id)
         id = instanceId,
         bucket = bucket,
         players = {
-            player1 = player1Id,
-            player2 = player2Id
+            chasseur = chasseurId,
+            cible = cibleId
         },
         createdAt = os.time(),
         vehicleModel = GetVehicleModel(),
@@ -69,7 +69,7 @@ local function CreateInstance(player1Id, player2Id)
             position = nil,
             createdBy = nil
         },
-        playersInZone = {}
+        cibleInZone = false
     }
     
     SetRoutingBucketPopulationEnabled(bucket, false)
@@ -79,8 +79,8 @@ local function CreateInstance(player1Id, player2Id)
     
     Config.SuccessPrint('Instance créée: ' .. instanceId)
     Config.InfoPrint('  Bucket: ' .. bucket)
-    Config.InfoPrint('  Player 1: ' .. player1Id)
-    Config.InfoPrint('  Player 2: ' .. player2Id)
+    Config.InfoPrint('  CHASSEUR: ' .. chasseurId)
+    Config.InfoPrint('  CIBLE: ' .. cibleId)
     
     return instance
 end
@@ -90,12 +90,12 @@ local function DeleteInstance(instanceId)
     if not instance then return false end
     
     -- Retirer tous les joueurs
-    if instance.players.player1 then
-        RemovePlayerFromInstance(instance.players.player1, instanceId)
+    if instance.players.chasseur then
+        RemovePlayerFromInstance(instance.players.chasseur, instanceId)
     end
     
-    if instance.players.player2 then
-        RemovePlayerFromInstance(instance.players.player2, instanceId)
+    if instance.players.cible then
+        RemovePlayerFromInstance(instance.players.cible, instanceId)
     end
     
     activeInstances[instanceId] = nil
@@ -108,19 +108,21 @@ end
 -- GESTION JOUEURS
 -- ═══════════════════════════════════════════════════════════════
 
-local function AddPlayerToInstance(playerId, instance, playerNumber)
+local function AddPlayerToInstance(playerId, instance, role)
     local xPlayer = ESX.GetPlayerFromId(playerId)
     if not xPlayer then return false end
     
     if playersInGame[playerId] then return false end
+    
+    local opponentId = (role == 'chasseur') and instance.players.cible or instance.players.chasseur
     
     playersInGame[playerId] = {
         instanceId = instance.id,
         bucket = instance.bucket,
         originalBucket = GetPlayerRoutingBucket(playerId),
         joinedAt = os.time(),
-        playerNumber = playerNumber,
-        opponentId = playerNumber == 1 and instance.players.player2 or instance.players.player1
+        role = role,
+        opponentId = opponentId
     }
     
     SetPlayerRoutingBucket(playerId, instance.bucket)
@@ -128,7 +130,7 @@ local function AddPlayerToInstance(playerId, instance, playerNumber)
     
     -- Créer véhicule pour ce joueur
     local success, vehicleNetId = pcall(function()
-        local spawnCoords = playerNumber == 1 and Config.CoursePoursuit.SpawnCoords.player1 or Config.CoursePoursuit.SpawnCoords.player2
+        local spawnCoords = Config.CoursePoursuit.SpawnCoords[role]
         local vehicleHash = GetHashKey(instance.vehicleModel)
         
         local vehicle = CreateVehicle(vehicleHash, spawnCoords.x, spawnCoords.y, spawnCoords.z, spawnCoords.w, true, true)
@@ -146,7 +148,7 @@ local function AddPlayerToInstance(playerId, instance, playerNumber)
             error('[SERVER] Échec récupération Network ID')
         end
         
-        Config.SuccessPrint('[SERVER] Véhicule créé pour joueur ' .. playerNumber .. ': ' .. vehicle .. ' NetID: ' .. netId)
+        Config.SuccessPrint('[SERVER] Véhicule créé pour ' .. string.upper(role) .. ': ' .. vehicle .. ' NetID: ' .. netId)
         return netId
     end)
     
@@ -161,16 +163,15 @@ local function AddPlayerToInstance(playerId, instance, playerNumber)
     -- Lancer le jeu pour ce joueur
     TriggerClientEvent('scharman:client:startCoursePoursuit', playerId, {
         instanceId = instance.id,
-        spawnCoords = playerNumber == 1 and Config.CoursePoursuit.SpawnCoords.player1 or Config.CoursePoursuit.SpawnCoords.player2,
+        spawnCoords = Config.CoursePoursuit.SpawnCoords[role],
         vehicleModel = instance.vehicleModel,
         bucketId = instance.bucket,
         vehicleNetId = vehicleNetId,
-        playerNumber = playerNumber,
-        opponentId = playerNumber == 1 and instance.players.player2 or instance.players.player1,
-        botMode = false
+        role = role,
+        opponentId = opponentId
     })
     
-    Config.SuccessPrint('Joueur ' .. playerId .. ' ajouté à l\'instance (Joueur ' .. playerNumber .. ')')
+    Config.SuccessPrint('Joueur ' .. playerId .. ' ajouté à l\'instance (Rôle: ' .. string.upper(role) .. ')')
     
     return true
 end
@@ -251,8 +252,14 @@ local function StartMatchmaking(playerId)
         TriggerClientEvent('scharman:client:courseNotification', opponentId, 
             Config.CoursePoursuit.Notifications.playerFound, 3000, 'success')
         
+        -- IMPORTANT: Attribution des rôles
+        -- Le PREMIER joueur (celui qui a cliqué) = CHASSEUR
+        -- Le DEUXIÈME joueur (celui en attente) = CIBLE
+        local chasseurId = opponentId -- L'adversaire qui attendait devient CHASSEUR
+        local cibleId = playerId      -- Le nouveau joueur devient CIBLE
+        
         -- Créer instance
-        local instance = CreateInstance(playerId, opponentId)
+        local instance = CreateInstance(chasseurId, cibleId)
         
         if not instance then
             TriggerClientEvent('scharman:client:courseNotification', playerId, 
@@ -262,13 +269,15 @@ local function StartMatchmaking(playerId)
             return
         end
         
-        -- Ajouter les deux joueurs
+        -- Ajouter les deux joueurs avec leurs rôles
         Wait(500)
-        AddPlayerToInstance(playerId, instance, 1)
+        AddPlayerToInstance(chasseurId, instance, 'chasseur')
         Wait(500)
-        AddPlayerToInstance(opponentId, instance, 2)
+        AddPlayerToInstance(cibleId, instance, 'cible')
         
-        Config.SuccessPrint('PARTIE LANCÉE: ' .. xPlayer.getName() .. ' vs ' .. xOpponent.getName())
+        Config.SuccessPrint('PARTIE LANCÉE:')
+        Config.InfoPrint('  CHASSEUR: ' .. xOpponent.getName() .. ' [' .. opponentId .. ']')
+        Config.InfoPrint('  CIBLE: ' .. xPlayer.getName() .. ' [' .. playerId .. ']')
     else
         -- Aucun adversaire, ajouter à la file d'attente
         Config.InfoPrint('Aucun adversaire trouvé, ajout file d\'attente')
@@ -287,24 +296,38 @@ RegisterNetEvent('scharman:server:zoneCreated', function(instanceId, position)
     local source = source
     local instance = activeInstances[instanceId]
     
-    if not instance then return end
+    if not instance then
+        Config.ErrorPrint('[ZONE] Instance introuvable: ' .. tostring(instanceId))
+        return
+    end
     
     local playerData = playersInGame[source]
-    if not playerData then return end
+    if not playerData then
+        Config.ErrorPrint('[ZONE] Joueur introuvable: ' .. source)
+        return
+    end
     
-    Config.InfoPrint('🔴 ZONE CRÉÉE par joueur ' .. source)
-    Config.DebugPrint('Position: ' .. tostring(position))
+    -- VÉRIFICATION: Seul le CHASSEUR peut créer la zone
+    if playerData.role ~= 'chasseur' then
+        Config.ErrorPrint('[ZONE] ⚠️ TENTATIVE CRÉATION PAR CIBLE - BLOQUÉ!')
+        return
+    end
+    
+    Config.InfoPrint('[ZONE] 🔴 ZONE CRÉÉE par CHASSEUR ' .. source)
+    Config.DebugPrint('[ZONE] Position: ' .. tostring(position))
     
     -- Enregistrer la zone
     instance.warZone.active = true
     instance.warZone.position = position
     instance.warZone.createdBy = source
     
-    -- Informer l'adversaire
-    local opponentId = playerData.opponentId
-    if opponentId then
-        Config.InfoPrint('Notification adversaire: ' .. opponentId)
-        TriggerClientEvent('scharman:client:opponentCreatedZone', opponentId, position)
+    -- Informer la CIBLE
+    local cibleId = instance.players.cible
+    if cibleId and cibleId ~= source then
+        Config.InfoPrint('[ZONE] Notification CIBLE: ' .. cibleId)
+        TriggerClientEvent('scharman:client:opponentCreatedZone', cibleId, position)
+    else
+        Config.ErrorPrint('[ZONE] CIBLE introuvable!')
     end
 end)
 
@@ -312,20 +335,35 @@ RegisterNetEvent('scharman:server:playerEnteredZone', function(instanceId)
     local source = source
     local instance = activeInstances[instanceId]
     
-    if not instance then return end
+    if not instance then
+        Config.ErrorPrint('[ZONE] Instance introuvable: ' .. tostring(instanceId))
+        return
+    end
     
     local playerData = playersInGame[source]
-    if not playerData then return end
+    if not playerData then
+        Config.ErrorPrint('[ZONE] Joueur introuvable: ' .. source)
+        return
+    end
     
-    Config.InfoPrint('✅ Joueur ' .. source .. ' a rejoint la zone')
+    -- VÉRIFICATION: Seule la CIBLE peut rejoindre la zone
+    if playerData.role ~= 'cible' then
+        Config.ErrorPrint('[ZONE] ⚠️ TENTATIVE ENTRÉE PAR CHASSEUR - IGNORÉ!')
+        return
+    end
     
-    -- Marquer le joueur comme dans la zone
-    instance.playersInZone[source] = true
+    Config.InfoPrint('[ZONE] ✅ CIBLE ' .. source .. ' a rejoint la zone')
     
-    -- Informer le créateur de la zone
-    if instance.warZone.createdBy and instance.warZone.createdBy ~= source then
-        Config.InfoPrint('Notification créateur zone: ' .. instance.warZone.createdBy)
-        TriggerClientEvent('scharman:client:opponentEnteredZone', instance.warZone.createdBy)
+    -- Marquer la cible comme dans la zone
+    instance.cibleInZone = true
+    
+    -- Informer le CHASSEUR
+    local chasseurId = instance.players.chasseur
+    if chasseurId and chasseurId ~= source then
+        Config.InfoPrint('[ZONE] Notification CHASSEUR: ' .. chasseurId)
+        TriggerClientEvent('scharman:client:opponentEnteredZone', chasseurId)
+    else
+        Config.ErrorPrint('[ZONE] CHASSEUR introuvable!')
     end
 end)
 
@@ -338,7 +376,7 @@ RegisterNetEvent('scharman:server:playerDied', function(instanceId)
     local playerData = playersInGame[source]
     if not playerData then return end
     
-    Config.InfoPrint('💀 Joueur ' .. source .. ' est mort')
+    Config.InfoPrint('💀 Joueur ' .. source .. ' (' .. string.upper(playerData.role) .. ') est mort')
     
     -- Informer l'adversaire de sa victoire
     local opponentId = playerData.opponentId
@@ -439,11 +477,12 @@ RegisterCommand('course_instances', function(source, args, rawCommand)
     for instanceId, instance in pairs(activeInstances) do
         count = count + 1
         print(string.format('%d. Instance: %s (Bucket: %d)', count, instanceId, instance.bucket))
-        print(string.format('   Joueur 1: %d | Joueur 2: %d', instance.players.player1, instance.players.player2))
+        print(string.format('   CHASSEUR: %d | CIBLE: %d', instance.players.chasseur, instance.players.cible))
         print(string.format('   Véhicule: %s', instance.vehicleModel))
         print(string.format('   Zone active: %s', instance.warZone.active and 'OUI' or 'NON'))
         if instance.warZone.active then
-            print(string.format('   Zone créée par: %s', instance.warZone.createdBy))
+            print(string.format('   Zone créée par: %s (CHASSEUR)', instance.warZone.createdBy))
+            print(string.format('   CIBLE dans zone: %s', instance.cibleInZone and 'OUI' or 'NON'))
         end
     end
     if count == 0 then print('Aucune instance active') end
@@ -489,4 +528,4 @@ AddEventHandler('onResourceStop', function(resourceName)
     end
 end)
 
-Config.DebugPrint('server/course_poursuite.lua V3 chargé')
+Config.DebugPrint('server/course_poursuite.lua V3.3 FINALE chargé')

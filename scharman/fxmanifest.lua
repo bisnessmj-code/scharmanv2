@@ -2,8 +2,8 @@ fx_version 'cerulean'
 game 'gta5'
 
 author 'Scharman Dev Team'
-description 'Script PVP 1v1 Scharman - Course Poursuite avec Synchronisation Zone de Guerre V3.0.0'
-version '3.0.0'
+description 'Script PVP 1v1 Scharman - Course Poursuite CHASSEUR vs CIBLE V3.3.0 FINAL FIX'
+version '3.3.0'
 lua54 'yes'
 
 shared_scripts {

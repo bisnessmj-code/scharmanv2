@@ -1,6 +1,6 @@
 -- SERVER - VERSION
 local SCRIPT_NAME = 'Scharman PVP 1v1'
-local SCRIPT_VERSION = '3.0.0 MATCHMAKING'
+local SCRIPT_VERSION = '3.2.0 FINALE - TOUS BUGS FIXÉS'
 local SCRIPT_AUTHOR = 'Scharman Dev Team'
 
 local function CheckDependencies()

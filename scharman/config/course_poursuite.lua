@@ -10,17 +10,47 @@ Config.CoursePoursuit.MaxInstances = 25
 Config.CoursePoursuit.GameDuration = 300 -- 5 minutes (0 = infini)
 
 -- ═══════════════════════════════════════════════════════════════
+-- SYSTÈME DE RÔLES
+-- ═══════════════════════════════════════════════════════════════
+
+-- CHASSEUR (Joueur 1) : Peut créer la zone immédiatement
+-- CIBLE (Joueur 2) : Doit rejoindre la zone avant de descendre
+
+Config.CoursePoursuit.Roles = {
+    chasseur = {
+        name = "🔫 CHASSEUR",
+        description = "Vous poursuivez votre cible !",
+        color = {r = 255, g = 0, b = 0}, -- Rouge
+        canCreateZone = true,
+        mustJoinZone = false
+    },
+    cible = {
+        name = "🎯 CIBLE",
+        description = "Vous devez rejoindre la zone !",
+        color = {r = 0, g = 100, b = 255}, -- Bleu
+        canCreateZone = false,
+        mustJoinZone = true
+    }
+}
+
+-- ═══════════════════════════════════════════════════════════════
 -- POSITIONS (⚠️ À MODIFIER)
 -- ═══════════════════════════════════════════════════════════════
 
--- Position spawn joueur 1
+-- Position spawn CHASSEUR (celui qui crée la zone)
 Config.CoursePoursuit.SpawnCoords = {
-    player1 = vector4(-2124.83, -301.81, 13.09, 73.70), -- ⚠️ CHANGE-MOI!
-    player2 = vector4(-2134.83, -311.81, 13.09, 73.70)  -- ⚠️ CHANGE-MOI!
+    chasseur = vector4(-2124.83, -301.81, 13.09, 73.70), -- ⚠️ CHANGE-MOI!
+    cible = vector4(-2134.83, -311.81, 13.09, 73.70)     -- ⚠️ CHANGE-MOI!
 }
 
 -- Position de retour après partie
 Config.CoursePoursuit.ReturnToNormalCoords = vector4(-2148.92, -330.63, 12.99, 141.73) -- ⚠️ CHANGE-MOI!
+
+-- ═══════════════════════════════════════════════════════════════
+-- SANTÉ JOUEURS
+-- ═══════════════════════════════════════════════════════════════
+
+Config.CoursePoursuit.PlayerHealth = 200 -- HP de départ
 
 -- ═══════════════════════════════════════════════════════════════
 -- VÉHICULES
@@ -34,15 +64,15 @@ Config.CoursePoursuit.RandomVehicle = false
 
 -- Personnalisation véhicules
 Config.CoursePoursuit.VehicleCustomization = {
-    player1 = {
+    chasseur = {
         primaryColor = {r = 255, g = 0, b = 0},   -- Rouge
         secondaryColor = {r = 0, g = 0, b = 0},   -- Noir
-        plate = 'PLAYER1'
+        plate = 'CHASSEUR'
     },
-    player2 = {
+    cible = {
         primaryColor = {r = 0, g = 100, b = 255}, -- Bleu
         secondaryColor = {r = 0, g = 0, b = 0},   -- Noir
-        plate = 'PLAYER2'
+        plate = 'CIBLE'
     },
     mods = {
         engine = 3,
@@ -106,6 +136,10 @@ Config.CoursePoursuit.Notifications = {
     searching = "🔍 Recherche d'un adversaire...",
     playerFound = "✅ Adversaire trouvé ! Préparation...",
     
+    -- Rôles
+    roleChasseur = "🔫 Vous êtes le CHASSEUR ! Poursuivez votre cible !",
+    roleCible = "🎯 Vous êtes la CIBLE ! Fuyez et rejoignez la zone !",
+    
     -- Démarrage
     teleporting = "🚀 Téléportation en cours...",
     starting = "🏁 La partie commence dans 3 secondes...",
@@ -117,9 +151,18 @@ Config.CoursePoursuit.Notifications = {
     warZoneCreated = "🔴 ZONE DE GUERRE créée à votre position !",
     weaponGiven = "🔫 Pistolet Cal .50 équipé !",
     
+    -- CIBLE spécifique
+    mustJoinZone = "⚠️ Vous devez d'abord REJOINDRE LA ZONE pour descendre !",
+    joinZoneFirst = "🎯 Rejoignez la zone rouge sur votre carte !",
+    zoneJoined = "✅ Zone rejointe ! Vous pouvez descendre !",
+    
+    -- CHASSEUR spécifique
+    waitingCible = "⏳ En attente que la cible rejoigne la zone...",
+    cibleInZone = "✅ La cible a rejoint la zone ! Combat !",
+    
     -- Adversaire
     opponentCreatedZone = "⚠️ Votre adversaire a créé la zone de guerre !",
-    opponentInZone = "✅ Votre adversaire a rejoint la zone ! Vous pouvez descendre !",
+    opponentInZone = "✅ Votre adversaire a rejoint la zone !",
     waitingOpponent = "⏳ Attendez que votre adversaire rejoigne la zone...",
     
     -- Dégâts
@@ -140,24 +183,6 @@ Config.CoursePoursuit.Notifications = {
 }
 
 Config.CoursePoursuit.MessageDuration = 3000
-
--- ═══════════════════════════════════════════════════════════════
--- BOT (MODE TEST UNIQUEMENT)
--- ═══════════════════════════════════════════════════════════════
-
-Config.CoursePoursuit.Bot = {
-    enabled = false, -- Désactivé par défaut
-    model = 'a_m_y_runner_01',
-    vehicle = 'futo',
-    vehicleColor = {
-        primary = {r = 255, g = 0, b = 0},
-        secondary = {r = 0, g = 0, b = 0}
-    },
-    spawnOffset = vector3(10.0, 10.0, 0.0),
-    drivingStyle = 786603,
-    speed = 30.0,
-    randomRoute = true
-}
 
 -- ═══════════════════════════════════════════════════════════════
 -- DEBUG
