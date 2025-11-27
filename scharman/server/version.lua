@@ -1,7 +1,7 @@
 -- SERVER - VERSION
-local SCRIPT_NAME = 'Scharman PED'
-local SCRIPT_VERSION = '2.0.1 CORRIGÉ'
-local SCRIPT_AUTHOR = 'ESX Legacy (Modifié)'
+local SCRIPT_NAME = 'Scharman PVP 1v1'
+local SCRIPT_VERSION = '3.0.0 MATCHMAKING'
+local SCRIPT_AUTHOR = 'Scharman Dev Team'
 
 local function CheckDependencies()
     if GetResourceState('es_extended') ~= 'started' then
@@ -26,10 +26,10 @@ CreateThread(function()
     print('^6═══════════════════════════════════════════════════════════════^7')
     
     if not CheckDependencies() then
-        Config.ErrorPrint('Échec de la vérification des dépendances')
+        Config.ErrorPrint('Échec vérification dépendances')
         return
     end
-    Config.SuccessPrint('Toutes les dépendances sont OK')
+    Config.SuccessPrint('Toutes les dépendances OK')
 end)
 
 Config.DebugPrint('server/version.lua chargé')

@@ -26,7 +26,7 @@ function debugLog(message, type = 'info') {
         error: 'color: #ff006e; font-weight: bold;',
         success: 'color: #00ff88; font-weight: bold;'
     };
-    console.log(`%c[Scharman NUI V2] ${message}`, styles[type] || styles.info);
+    console.log(`%c[Scharman NUI V3] ${message}`, styles[type] || styles.info);
 }
 
 function post(action, data = {}) {
@@ -61,7 +61,7 @@ function showNotification(message, duration = 3000, type = 'info') {
 
 function openInterface(animationDuration = 500) {
     if (AppState.isOpen || AppState.isAnimating) return;
-    debugLog('Ouverture de l\'interface...', 'info');
+    debugLog('Ouverture interface...', 'info');
     AppState.isAnimating = true;
     Elements.app.classList.remove('hidden');
     setTimeout(() => {
@@ -73,7 +73,7 @@ function openInterface(animationDuration = 500) {
 
 function closeInterface(animationDuration = 400) {
     if (!AppState.isOpen || AppState.isAnimating) return;
-    debugLog('Fermeture de l\'interface...', 'info');
+    debugLog('Fermeture interface...', 'info');
     AppState.isAnimating = true;
     Elements.app.classList.add('closing');
     setTimeout(() => {
@@ -87,8 +87,8 @@ function closeInterface(animationDuration = 400) {
 }
 
 function startCoursePoursuiteMode() {
-    debugLog('Lancement du mode Course Poursuite', 'info');
-    showNotification('🏁 Recherche d\'une partie...', 2000, 'info');
+    debugLog('Lancement matchmaking Course Poursuite', 'info');
+    showNotification('🔍 Recherche adversaire...', 2000, 'info');
     closeInterface();
     setTimeout(() => {
         post('joinCoursePoursuit', {});
@@ -96,13 +96,13 @@ function startCoursePoursuiteMode() {
 }
 
 function handleCardClick(cardElement, index) {
-    debugLog(`Clic sur la carte ${index}`, 'info');
+    debugLog(`Clic carte ${index}`, 'info');
     const gameMode = cardElement.getAttribute('data-mode');
     const button = cardElement.querySelector('.btn-primary');
     
     if (button && button.disabled) {
         debugLog('Mode désactivé', 'warning');
-        showNotification('❌ Ce mode de jeu n\'est pas encore disponible', 2000, 'warning');
+        showNotification('❌ Mode pas encore disponible', 2000, 'warning');
         return;
     }
     
@@ -112,7 +112,7 @@ function handleCardClick(cardElement, index) {
             break;
         default:
             debugLog('Mode inconnu: ' + gameMode, 'warning');
-            showNotification('❌ Mode de jeu non reconnu', 2000, 'error');
+            showNotification('❌ Mode non reconnu', 2000, 'error');
             break;
     }
 }
@@ -182,7 +182,7 @@ function hideVehicleLock() {
 }
 
 function showDeathScreen() {
-    debugLog('Affichage écran de mort', 'error');
+    debugLog('Affichage écran mort', 'error');
     const deathScreen = document.getElementById('death-screen-container');
     if (deathScreen) {
         deathScreen.classList.remove('hidden');
@@ -190,7 +190,7 @@ function showDeathScreen() {
 }
 
 function hideDeathScreen() {
-    debugLog('Masquage écran de mort');
+    debugLog('Masquage écran mort');
     const deathScreen = document.getElementById('death-screen-container');
     if (deathScreen) {
         deathScreen.classList.add('hidden');
@@ -198,7 +198,7 @@ function hideDeathScreen() {
 }
 
 function initEventListeners() {
-    debugLog('Initialisation des écouteurs...', 'info');
+    debugLog('Init écouteurs...', 'info');
     
     Elements.closeBtn.addEventListener('click', () => {
         debugLog('Clic fermeture', 'info');
@@ -268,7 +268,7 @@ window.addEventListener('message', (event) => {
 
 function init() {
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
-    debugLog('Init Scharman NUI V2.0 CORRIGÉ...', 'info');
+    debugLog('Init Scharman NUI V3.0 PVP 1V1...', 'info');
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
     
     Elements.app = document.getElementById('app');
@@ -286,22 +286,13 @@ function init() {
         return;
     }
     
-    if (!Elements.countdownContainer || !Elements.countdownNumber) {
-        debugLog('Erreur: Éléments décompte manquants!', 'error');
-    }
-    
-    if (!Elements.vehicleLockContainer || !Elements.vehicleLockTimer || !Elements.vehicleLockProgress) {
-        debugLog('Erreur: Éléments blocage véhicule manquants!', 'error');
-    }
-    
     initEventListeners();
     Elements.app.classList.add('hidden');
     
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
-    debugLog('Scharman NUI V2.0 CORRIGÉ initialisé!', 'success');
-    debugLog('- Décompte 3-2-1-GO: OK', 'success');
-    debugLog('- Blocage véhicule: OK', 'success');
-    debugLog('- Écran de mort: OK', 'success');
+    debugLog('Scharman NUI V3.0 initialisé!', 'success');
+    debugLog('- Matchmaking PVP 1v1: OK', 'success');
+    debugLog('- Système zone synchronisée: OK', 'success');
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
 }
 

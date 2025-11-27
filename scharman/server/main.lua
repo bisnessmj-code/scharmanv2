@@ -17,7 +17,7 @@ RegisterCommand('scharman_list', function(source, args, rawCommand)
     end
     
     print('═══════════════════════════════════════════════════════════════')
-    print('Joueurs avec l\'interface Scharman ouverte:')
+    print('Joueurs avec interface Scharman ouverte:')
     local count = 0
     for playerId, _ in pairs(playersWithNuiOpen) do
         count = count + 1

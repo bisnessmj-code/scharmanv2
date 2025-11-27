@@ -2,10 +2,10 @@
 ESX = exports['es_extended']:getSharedObject()
 
 CreateThread(function()
-    Config.InfoPrint('Initialisation du script client...')
+    Config.InfoPrint('Initialisation script client...')
     while not ESX.IsPlayerLoaded() do Wait(100) end
-    Config.SuccessPrint('Script client initialisé avec succès!')
-    Config.DebugPrint('Version: 2.0.1 CORRIGÉ')
+    Config.SuccessPrint('Script client initialisé!')
+    Config.DebugPrint('Version: 3.0.0 PVP 1V1')
 end)
 
 if Config.Debug then
@@ -20,12 +20,7 @@ if Config.Debug then
         print('═══════════════════════════════════════════════════════════════')
     end, false)
     
-    RegisterCommand('scharman_reload', function()
-        Config.InfoPrint('Rechargement du script...')
-        TriggerEvent('scharman:client:reload')
-    end, false)
-    
-    Config.InfoPrint('Commandes de debug disponibles: /scharman_info, /scharman_reload')
+    Config.InfoPrint('Commande debug: /scharman_info')
 end
 
-Config.DebugPrint('Fichier client/main.lua chargé avec succès')
+Config.DebugPrint('client/main.lua chargé')

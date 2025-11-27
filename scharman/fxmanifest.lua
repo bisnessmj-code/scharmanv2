@@ -1,9 +1,9 @@
 fx_version 'cerulean'
 game 'gta5'
 
-author 'ESX Legacy (Modifié)'
-description 'Script PED Scharman avec Interface Tablette + Course Poursuite 1v1 V2.0.1 CORRIGÉ'
-version '2.0.1'
+author 'Scharman Dev Team'
+description 'Script PVP 1v1 Scharman - Course Poursuite avec Synchronisation Zone de Guerre V3.0.0'
+version '3.0.0'
 lua54 'yes'
 
 shared_scripts {
