@@ -1,4 +1,4 @@
--- CLIENT - PED (Version simplifiée pour le ZIP)
+-- CLIENT - PED
 local scharmanPed = nil
 local scharmanBlip = nil
 

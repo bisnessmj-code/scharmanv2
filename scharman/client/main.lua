@@ -5,7 +5,7 @@ CreateThread(function()
     Config.InfoPrint('Initialisation du script client...')
     while not ESX.IsPlayerLoaded() do Wait(100) end
     Config.SuccessPrint('Script client initialisé avec succès!')
-    Config.DebugPrint('Version: 2.0.0')
+    Config.DebugPrint('Version: 2.0.1 CORRIGÉ')
 end)
 
 if Config.Debug then
@@ -16,6 +16,7 @@ if Config.Debug then
         print('═══════════════════════════════════════════════════════════════')
         print('Position: ' .. coords.x .. ', ' .. coords.y .. ', ' .. coords.z)
         print('Heading: ' .. heading)
+        print('Format Config: vector4(' .. coords.x .. ', ' .. coords.y .. ', ' .. coords.z .. ', ' .. heading .. ')')
         print('═══════════════════════════════════════════════════════════════')
     end, false)
     

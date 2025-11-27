@@ -117,29 +117,19 @@ function handleCardClick(cardElement, index) {
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ✅ DÉCOMPTE 3-2-1-GO
-   ═══════════════════════════════════════════════════════════════ */
-
 function showCountdown(number) {
     debugLog(`Affichage décompte: ${number}`, 'info');
     
     AppState.countdownActive = true;
-    
-    // Afficher le container
     Elements.countdownContainer.classList.remove('hidden');
-    
-    // Mettre à jour le nombre
     Elements.countdownNumber.textContent = number;
     
-    // Ajouter classe spéciale pour GO!
     if (number === 'GO!') {
         Elements.countdownNumber.classList.add('go');
     } else {
         Elements.countdownNumber.classList.remove('go');
     }
     
-    // Forcer reflow pour animation
     Elements.countdownNumber.style.animation = 'none';
     void Elements.countdownNumber.offsetWidth;
     Elements.countdownNumber.style.animation = '';
@@ -147,34 +137,21 @@ function showCountdown(number) {
 
 function hideCountdown() {
     debugLog('Masquage décompte', 'info');
-    
     AppState.countdownActive = false;
     Elements.countdownContainer.classList.add('hidden');
     Elements.countdownNumber.classList.remove('go');
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ✅ MESSAGE BLOCAGE VÉHICULE
-   ═══════════════════════════════════════════════════════════════ */
-
 function showVehicleLock(duration = 30000) {
     debugLog(`Affichage blocage véhicule (${duration}ms)`, 'info');
     
     AppState.vehicleLockActive = true;
-    
-    // Afficher le container
     Elements.vehicleLockContainer.classList.remove('hidden');
-    
-    // Initialiser la barre de progression à 100%
     Elements.vehicleLockProgress.style.width = '100%';
     
-    // Temps restant en secondes
     let timeLeft = duration / 1000;
-    
-    // Mettre à jour le timer
     Elements.vehicleLockTimer.textContent = `${timeLeft}s`;
     
-    // Démarrer le compte à rebours
     const startTime = Date.now();
     
     AppState.vehicleLockTimer = setInterval(() => {
@@ -182,14 +159,10 @@ function showVehicleLock(duration = 30000) {
         const remaining = Math.max(0, duration - elapsed);
         timeLeft = Math.ceil(remaining / 1000);
         
-        // Mettre à jour le texte
         Elements.vehicleLockTimer.textContent = `${timeLeft}s`;
-        
-        // Mettre à jour la barre de progression
         const progress = (remaining / duration) * 100;
         Elements.vehicleLockProgress.style.width = `${progress}%`;
         
-        // Si terminé, masquer
         if (remaining <= 0) {
             hideVehicleLock();
         }
@@ -208,9 +181,21 @@ function hideVehicleLock() {
     Elements.vehicleLockContainer.classList.add('hidden');
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   GESTION DES ÉVÉNEMENTS
-   ═══════════════════════════════════════════════════════════════ */
+function showDeathScreen() {
+    debugLog('Affichage écran de mort', 'error');
+    const deathScreen = document.getElementById('death-screen-container');
+    if (deathScreen) {
+        deathScreen.classList.remove('hidden');
+    }
+}
+
+function hideDeathScreen() {
+    debugLog('Masquage écran de mort');
+    const deathScreen = document.getElementById('death-screen-container');
+    if (deathScreen) {
+        deathScreen.classList.add('hidden');
+    }
+}
 
 function initEventListeners() {
     debugLog('Initialisation des écouteurs...', 'info');
@@ -245,10 +230,6 @@ function initEventListeners() {
     debugLog('Écouteurs initialisés', 'success');
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   RÉCEPTION DES MESSAGES DE LUA
-   ═══════════════════════════════════════════════════════════════ */
-
 window.addEventListener('message', (event) => {
     const data = event.data;
     if (!data || !data.action) return;
@@ -264,16 +245,12 @@ window.addEventListener('message', (event) => {
         case 'showNotification':
             showNotification(data.data.message, data.data.duration || 3000, data.data.type || 'info');
             break;
-        
-        // ✅ NOUVEAU: Décompte
         case 'showCountdown':
             showCountdown(data.data.number);
             break;
         case 'hideCountdown':
             hideCountdown();
             break;
-        
-        // ✅ NOUVEAU: Blocage véhicule
         case 'showVehicleLock':
             showVehicleLock(data.data.duration || 30000);
             break;
@@ -289,41 +266,15 @@ window.addEventListener('message', (event) => {
     }
 });
 
-/* ═══════════════════════════════════════════════════════════════
-   💀 ÉCRAN DE MORT
-   ═══════════════════════════════════════════════════════════════ */
-
-function showDeathScreen() {
-    debugLog('Affichage écran de mort', 'error');
-    const deathScreen = document.getElementById('death-screen-container');
-    if (deathScreen) {
-        deathScreen.classList.remove('hidden');
-    }
-}
-
-function hideDeathScreen() {
-    debugLog('Masquage écran de mort');
-    const deathScreen = document.getElementById('death-screen-container');
-    if (deathScreen) {
-        deathScreen.classList.add('hidden');
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   INITIALISATION
-   ═══════════════════════════════════════════════════════════════ */
-
 function init() {
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
-    debugLog('Init Scharman NUI V2.0...', 'info');
+    debugLog('Init Scharman NUI V2.0 CORRIGÉ...', 'info');
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
     
     Elements.app = document.getElementById('app');
     Elements.closeBtn = document.getElementById('closeBtn');
     Elements.gameCards = Array.from(document.querySelectorAll('.game-card'));
     Elements.notificationContainer = document.getElementById('notification-container');
-    
-    // ✅ NOUVEAUX ÉLÉMENTS
     Elements.countdownContainer = document.getElementById('countdown-container');
     Elements.countdownNumber = Elements.countdownContainer?.querySelector('.countdown-number');
     Elements.vehicleLockContainer = document.getElementById('vehicle-lock-container');
@@ -347,9 +298,10 @@ function init() {
     Elements.app.classList.add('hidden');
     
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
-    debugLog('Scharman NUI V2.0 initialisé!', 'success');
+    debugLog('Scharman NUI V2.0 CORRIGÉ initialisé!', 'success');
     debugLog('- Décompte 3-2-1-GO: OK', 'success');
     debugLog('- Blocage véhicule: OK', 'success');
+    debugLog('- Écran de mort: OK', 'success');
     debugLog('═══════════════════════════════════════════════════════════════', 'info');
 }
 

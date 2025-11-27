@@ -1,6 +1,6 @@
 -- SERVER - VERSION
 local SCRIPT_NAME = 'Scharman PED'
-local SCRIPT_VERSION = '2.0.0'
+local SCRIPT_VERSION = '2.0.1 CORRIGÉ'
 local SCRIPT_AUTHOR = 'ESX Legacy (Modifié)'
 
 local function CheckDependencies()

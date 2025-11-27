@@ -1,4 +1,4 @@
--- CLIENT - NUI (Version simplifiée)
+-- CLIENT - NUI
 local isNuiOpen = false
 local disableControlsThread = nil
 

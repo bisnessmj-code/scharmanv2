@@ -1,19 +1,12 @@
--- ███████╗ ██████╗██╗  ██╗ █████╗ ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗
--- ██╔════╝██╔════╝██║  ██║██╔══██╗██╔══██╗████╗ ████║██╔══██╗████╗  ██║
--- ███████╗██║     ███████║███████║██████╔╝██╔████╔██║███████║██╔██╗ ██║
--- ╚════██║██║     ██╔══██║██╔══██║██╔══██╗██║╚██╔╝██║██╔══██║██║╚██╗██║
--- ███████║╚██████╗██║  ██║██║  ██║██║  ██║██║ ╚═╝ ██║██║  ██║██║ ╚████║
--- ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
--- CONFIGURATION PRINCIPALE
-
 Config = {}
 
 Config.Debug = true
 Config.Locale = 'fr'
 
+-- ⚠️ À MODIFIER: Position du PED
 Config.Ped = {
     model = 'a_m_y_business_03',
-    coords = vector4(-2148.923096, -330.632966, 12.986084, 141.732284),
+    coords = vector4(-2148.92, -330.63, 12.99, 141.73), -- ⚠️ CHANGE-MOI!
     scenario = 'WORLD_HUMAN_CLIPBOARD',
     invincible = true,
     freeze = true,
@@ -62,14 +55,6 @@ Config.DisabledControls = {
     86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
     102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
     116, 117, 118, 119, 140, 141, 142, 143, 257, 263, 264, 331
-}
-
-Config.Texts = {
-    nuiOpened = 'Interface Scharman ouverte',
-    nuiClosed = 'Interface Scharman fermée',
-    pedSpawned = 'PED Scharman spawné avec succès',
-    blipCreated = 'Blip Scharman créé',
-    interactionDetected = 'Interaction avec le PED détectée'
 }
 
 function Config.DebugPrint(message)

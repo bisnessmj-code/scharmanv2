@@ -1,17 +1,4 @@
--- ███████╗ ██████╗██╗  ██╗ █████╗ ██████╗ ███╗   ███╗ █████╗ ███╗   ██╗
--- ██╔════╝██╔════╝██║  ██║██╔══██╗██╔══██╗████╗ ████║██╔══██╗████╗  ██║
--- ███████╗██║     ███████║███████║██████╔╝██╔████╔██║███████║██╔██╗ ██║
--- ╚════██║██║     ██╔══██║██╔══██║██╔══██╗██║╚██╔╝██║██╔══██║██║╚██╗██║
--- ███████║╚██████╗██║  ██║██║  ██║██║  ██║██║ ╚═╝ ██║██║  ██║██║ ╚████║
--- ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
--- CONFIGURATION - MODE COURSE POURSUITE V2
--- ═══════════════════════════════════════════════════════════════
-
 Config.CoursePoursuit = {}
-
--- ═══════════════════════════════════════════════════════════════
--- PARAMÈTRES GÉNÉRAUX
--- ═══════════════════════════════════════════════════════════════
 
 -- Activer/Désactiver le mode
 Config.CoursePoursuit.Enabled = true
@@ -34,12 +21,8 @@ Config.CoursePoursuit.MaxInstances = 25
 -- Durée d'une partie (en secondes, 0 = infini)
 Config.CoursePoursuit.GameDuration = 300 -- 5 minutes
 
--- ═══════════════════════════════════════════════════════════════
--- SPAWN ET VÉHICULE
--- ═══════════════════════════════════════════════════════════════
-
--- Point de spawn du joueur (coordonnées + heading)
-Config.CoursePoursuit.SpawnCoords = vector4(-2124.83, -301.81, 13.09, 73.70)
+-- ⚠️ À MODIFIER: Point de spawn du joueur (coordonnées + heading)
+Config.CoursePoursuit.SpawnCoords = vector4(-2124.83, -301.81, 13.09, 73.70) -- ⚠️ CHANGE-MOI!
 
 -- Modèle de véhicule à spawn
 Config.CoursePoursuit.VehicleModel = 'sultan'
@@ -58,29 +41,18 @@ Config.CoursePoursuit.RandomVehicle = false
 
 -- Personnalisation du véhicule
 Config.CoursePoursuit.VehicleCustomization = {
-    -- Couleur primaire (RGB)
     primaryColor = {r = 255, g = 0, b = 0}, -- Rouge
-    
-    -- Couleur secondaire (RGB)
     secondaryColor = {r = 0, g = 0, b = 0}, -- Noir
-    
-    -- Plaque d'immatriculation
     plate = 'SCHARMAN',
-    
-    -- Modifications
     mods = {
-        engine = 3,       -- Moteur niveau 3
-        brakes = 2,       -- Freins niveau 2
-        transmission = 2, -- Transmission niveau 2
-        suspension = 1,   -- Suspension niveau 1
-        armor = 0,        -- Pas d'armure
-        turbo = true      -- Turbo activé
+        engine = 3,
+        brakes = 2,
+        transmission = 2,
+        suspension = 1,
+        armor = 0,
+        turbo = true
     }
 }
-
--- ═══════════════════════════════════════════════════════════════
--- ✅ NOUVEAU: DÉCOMPTE ET RESTRICTIONS
--- ═══════════════════════════════════════════════════════════════
 
 -- Activer le décompte 3-2-1-GO au spawn
 Config.CoursePoursuit.EnableCountdown = true
@@ -99,10 +71,6 @@ Config.CoursePoursuit.MessageDuration = 3000
 
 -- Désactiver les armes dans le véhicule
 Config.CoursePoursuit.DisableWeapons = true
-
--- ═══════════════════════════════════════════════════════════════
--- ✅ NOUVEAU: ZONE DE GUERRE
--- ═══════════════════════════════════════════════════════════════
 
 -- Activer la zone de guerre automatique au spawn
 Config.CoursePoursuit.EnableWarZone = true
@@ -127,10 +95,6 @@ Config.CoursePoursuit.WarZoneBlipSprite = 84 -- Crâne
 -- Couleur du blip (1 = Rouge)
 Config.CoursePoursuit.WarZoneBlipColor = 1
 
--- ═══════════════════════════════════════════════════════════════
--- SYSTÈME D'INSTANCE (ROUTING BUCKETS)
--- ═══════════════════════════════════════════════════════════════
-
 -- Range de routing buckets à utiliser (de 1000 à 2000)
 Config.CoursePoursuit.BucketRange = {
     min = 1000,
@@ -138,13 +102,7 @@ Config.CoursePoursuit.BucketRange = {
 }
 
 -- Lockdown mode du routing bucket
--- 'strict' = Le joueur ne peut pas rejoindre/quitter sans permission
--- 'relaxed' = Le joueur peut se déplacer librement
 Config.CoursePoursuit.BucketLockdown = 'strict'
-
--- ═══════════════════════════════════════════════════════════════
--- INTERFACE ET NOTIFICATIONS
--- ═══════════════════════════════════════════════════════════════
 
 -- Notifications
 Config.CoursePoursuit.Notifications = {
@@ -160,22 +118,14 @@ Config.CoursePoursuit.Notifications = {
     warZoneCreated = "🔴 ZONE DE GUERRE créée !"
 }
 
--- ═══════════════════════════════════════════════════════════════
--- RETOUR À LA NORMALE
--- ═══════════════════════════════════════════════════════════════
-
--- Position de retour après la partie (position du PED)
-Config.CoursePoursuit.ReturnToNormalCoords = vector4(-2148.923096, -330.632966, 12.986084, 141.732284)
+-- ⚠️ À MODIFIER: Position de retour après la partie (position du PED)
+Config.CoursePoursuit.ReturnToNormalCoords = vector4(-2148.92, -330.63, 12.99, 141.73) -- ⚠️ CHANGE-MOI!
 
 -- Temps avant retour automatique (en secondes, 0 = désactivé)
 Config.CoursePoursuit.AutoReturnTime = 0
 
 -- Message de fin de partie
 Config.CoursePoursuit.EndGameMessage = "Merci d'avoir joué ! Retour à la normale..."
-
--- ═══════════════════════════════════════════════════════════════
--- ZONE DE JEU (Optionnel - Pour limiter la zone)
--- ═══════════════════════════════════════════════════════════════
 
 -- Activer la limitation de zone
 Config.CoursePoursuit.UseZoneLimit = false
@@ -192,19 +142,11 @@ Config.CoursePoursuit.OutOfZoneMessage = "⚠️ Retournez dans la zone de jeu !
 -- Temps avant téléportation forcée (en secondes)
 Config.CoursePoursuit.OutOfZoneTimeout = 10
 
--- ═══════════════════════════════════════════════════════════════
--- DEBUG ET LOGS
--- ═══════════════════════════════════════════════════════════════
-
 -- Afficher les informations de debug
 Config.CoursePoursuit.DebugMode = true
 
 -- Logger les événements
 Config.CoursePoursuit.LogEvents = true
-
--- ═══════════════════════════════════════════════════════════════
--- BOTS ADVERSAIRES (MODE SOLO)
--- ═══════════════════════════════════════════════════════════════
 
 -- Modèle du bot
 Config.CoursePoursuit.BotModel = 'a_m_y_runner_01'
@@ -221,10 +163,7 @@ Config.CoursePoursuit.BotVehicleColor = {
 -- Position de spawn du bot (offset depuis le joueur)
 Config.CoursePoursuit.BotSpawnOffset = vector3(10.0, 10.0, 0.0)
 
--- Style de conduite du bot
--- 0-1000 : Prudent
--- 786603 : Normal
--- 1074528293 : Agressif
+-- Style de conduite du bot (786603 = Normal)
 Config.CoursePoursuit.BotDrivingStyle = 786603
 
 -- Vitesse du bot
